@@ -4,10 +4,11 @@ import { ArticleBylineMeta } from "@/components/editorial/ArticleByline";
 import type { Article } from "@/store/articles-context";
 import { cn } from "@/lib/utils";
 
-export type PopularNewsArticle = Pick<
-  Article,
-  "id" | "title" | "date" | "category" | "author" | "image"
->;
+export type PopularNewsArticle = Pick<Article, "id" | "title" | "date"> & {
+  category?: string;
+  author?: string;
+  image?: string;
+};
 
 function isUsableSidebarImage(src?: string) {
   if (!src?.trim()) return false;
@@ -65,7 +66,9 @@ export function PopularNewsSidebar({
               )}
             >
               <Link href={`/article/${article.id}`} className="group block">
-                <SectionLabel className="mb-1">{article.category}</SectionLabel>
+                {article.category ? (
+                  <SectionLabel className="mb-1">{article.category}</SectionLabel>
+                ) : null}
                 <h2
                   className={cn(
                     "font-serif leading-snug text-foreground line-clamp-3 transition-colors group-hover:text-primary",
