@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800" role="img" aria-label="Columnist placeholder">
+  <defs>
+    <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#0A0A09"/>
+      <stop offset="1" stop-color="#C41E3A"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#g)"/>
+  <circle cx="400" cy="320" r="140" fill="rgba(255,255,255,0.16)"/>
+  <path d="M160 720c40-140 160-220 240-220s200 80 240 220" fill="rgba(255,255,255,0.16)"/>
+  <text x="60" y="95" fill="#FFFFFF" font-family="system-ui, -apple-system, Segoe UI, Roboto, Arial" font-size="22" font-weight="700" letter-spacing="3">
+    COLUMNIST 02
+  </text>
+</svg>
+

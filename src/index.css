@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap');
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card-border: hsl(var(--border));
+
+  --color-popover: hsl(var(--card));
+  --color-popover-foreground: hsl(var(--foreground));
+  --color-popover-border: hsl(var(--border));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --font-sans: 'DM Sans', sans-serif;
+  --font-serif: 'DM Serif Display', serif;
+
+  --radius-sm: var(--radius);
+  --radius-md: var(--radius);
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
+}
+
+:root {
+  --background: 40 20% 98%;
+  --foreground: 30 8% 12%;
+  --muted: 30 5% 46%;
+  --border: 40 12% 90%;
+  --card: 0 0% 100%;
+  --primary: 350 74% 44%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 40 15% 96%;
+  --secondary-foreground: 30 8% 12%;
+  --accent: 350 74% 44%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 350 74% 44%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 40 12% 90%;
+  --ring: 350 74% 44%;
+  --radius: 0.25rem;
+  --shadow-editorial: 0 1px 2px hsl(30 8% 12% / 0.04), 0 8px 24px hsl(30 8% 12% / 0.06);
+}
+
+.dark {
+  --background: 60 5% 6%;
+  --foreground: 60 16% 93%;
+  --muted: 60 4% 53%;
+  --border: 60 4% 14%;
+  --card: 60 4% 10%;
+  --primary: 351 79% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 60 4% 10%;
+  --secondary-foreground: 60 16% 93%;
+  --accent: 351 79% 56%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 351 79% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --input: 60 4% 14%;
+  --ring: 351 79% 56%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: auto;
+    scroll-padding-top: 5.5rem;
+  }
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "kern" 1, "liga" 1;
+    overscroll-behavior-y: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--foreground));
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif tracking-tight text-balance;
+  }
+  a {
+    @apply transition-colors duration-200;
+  }
+  .input {
+    @apply w-full px-3 py-2.5 bg-card border border-border rounded-sm text-[13px] outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 text-foreground;
+  }
+}
+
+@layer components {
+  /* Wider layout (opinion, latest) — capped so it does not span the full monitor */
+  .site-gutter {
+    @apply w-full max-w-[1680px] mx-auto px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12;
+  }
+  /* Homepage, header, and standard pages — moderately wider than before, not full-bleed */
+  .editorial-container {
+    @apply w-full max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10;
+  }
+  .editorial-card {
+    @apply bg-card border border-border rounded-sm transition-shadow duration-300;
+  }
+  /* Card titles should use natural wrapping (not globally balanced). */
+  .editorial-card h1,
+  .editorial-card h2,
+  .editorial-card h3,
+  .editorial-card h4,
+  .editorial-card h5,
+  .editorial-card h6 {
+    text-wrap: wrap;
+  }
+  .editorial-card:hover {
+    box-shadow: var(--shadow-editorial);
+  }
+  .image-zoom {
+    @apply overflow-hidden;
+  }
+  .image-zoom img {
+    @apply transition-transform duration-300 ease-out;
+  }
+  @media (hover: hover) {
+    .image-zoom:hover img {
+      @apply scale-[1.03];
+    }
+  }
+
+  /* Scroll performance for long lists */
+  .scroll-perf-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 280px;
+    contain: layout paint style;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    .image-zoom img {
+      transition: none;
+    }
+  }
+}

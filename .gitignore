@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# next.js
+.next/
+out/
+
+# env (secrets — never commit)
+.env
+.env.local
+.env.*.local
+
+# database schema (applied in Supabase already; keep local, omit from GitHub)
+supabase/migrations/
+supabase/schema-full.sql
+
+# import sources (large CSV; keep backups outside the repo)
+/data/
+
+# caches & tooling
+.cache/
+tsconfig.tsbuildinfo
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
