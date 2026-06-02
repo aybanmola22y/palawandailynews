@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Article } from "@/types/article";
 import type { ArticleRow } from "@/lib/supabase/database.types";
 import { rowToArticle } from "@/lib/articles/map-article-row";
+import { excerptToPlainText } from "@/lib/html-editor-content";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const ARTICLE_SUMMARY_SELECT =
@@ -12,7 +13,7 @@ const MAX_PAGES = 30;
 const LIST_EXCERPT_MAX = 280;
 
 function trimListExcerpt(excerpt: string) {
-  const t = excerpt.trim();
+  const t = excerptToPlainText(excerpt).trim();
   if (t.length <= LIST_EXCERPT_MAX) return t;
   return `${t.slice(0, LIST_EXCERPT_MAX).trim()}…`;
 }

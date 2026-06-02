@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUsers } from "@/store/users-context";
 import { useStaff, type StaffProfile } from "@/store/staff-context";
 import { useArticles } from "@/store/articles-context";
@@ -10,6 +10,7 @@ import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { Search, ExternalLink } from "lucide-react";
 import { authorProfilePath } from "@/lib/author-profile";
 import { defaultAuthorProfile } from "@/lib/author-profile-defaults";
+import { paginateArticles } from "@/lib/site-articles";
 
 type ProfileFormState = {
   name: string;
@@ -37,6 +38,8 @@ export default function AdminStaff() {
   const { toast } = useToast();
 
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const perPage = 10;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProfileFormState | null>(null);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
@@ -50,15 +53,32 @@ export default function AdminStaff() {
     return map;
   }, [articles]);
 
-  const filtered = staff.filter((u) => {
+  const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return (
-      !q ||
-      u.name.toLowerCase().includes(q) ||
-      u.profileTitle.toLowerCase().includes(q) ||
-      u.bio.toLowerCase().includes(q)
+    return staff.filter(
+      (u) =>
+        !q ||
+        u.name.toLowerCase().includes(q) ||
+        u.profileTitle.toLowerCase().includes(q) ||
+        u.bio.toLowerCase().includes(q),
     );
-  });
+  }, [staff, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const { items: pageStaff, totalPages } = useMemo(
+    () => paginateArticles(filtered, page, perPage),
+    [filtered, page, perPage],
+  );
+
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   function openEdit(id: string) {
     const member = staff.find((s) => s.id === id);
@@ -83,7 +103,7 @@ export default function AdminStaff() {
     setModal(null);
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form) return;
     if (!form.name.trim()) {
       toast({
@@ -94,44 +114,61 @@ export default function AdminStaff() {
       return;
     }
 
-    if (modal === "add") {
-      addStaff({
-        name: form.name.trim(),
-        profileTitle: form.profileTitle,
-        quote: form.quote,
-        bio: form.bio,
-        badgeLabel: form.badgeLabel,
-      });
+    try {
+      if (modal === "add") {
+        await addStaff({
+          name: form.name.trim(),
+          profileTitle: form.profileTitle,
+          quote: form.quote,
+          bio: form.bio,
+          badgeLabel: form.badgeLabel,
+        });
+        toast({
+          title: "Staff added",
+          description: `${form.name} was added to Staff (no admin access).`,
+        });
+      } else if (modal === "edit" && editingId) {
+        await updateStaff(editingId, {
+          name: form.name.trim(),
+          profileTitle: form.profileTitle,
+          quote: form.quote,
+          bio: form.bio,
+          badgeLabel: form.badgeLabel,
+        });
+        toast({
+          title: "Profile updated",
+          description: `${form.name}'s public profile was saved.`,
+        });
+      }
+      close();
+    } catch (err) {
       toast({
-        title: "Staff added",
-        description: `${form.name} was added to Staff (no admin access).`,
-      });
-    } else if (modal === "edit" && editingId) {
-      updateStaff(editingId, {
-        name: form.name.trim(),
-        profileTitle: form.profileTitle,
-        quote: form.quote,
-        bio: form.bio,
-        badgeLabel: form.badgeLabel,
-      });
-      toast({
-        title: "Profile updated",
-        description: `${form.name}'s public profile was saved.`,
+        title: "Could not save staff profile",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
       });
     }
-
-    close();
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!deleteId) return;
-    const member = staff.find((s) => s.id === deleteId);
-    deleteStaff(deleteId);
+    const targetId = deleteId;
+    const member = staff.find((s) => s.id === targetId);
+    // Close dialog immediately on confirm.
     setDeleteId(null);
-    toast({
-      title: "Staff removed",
-      description: member ? `${member.name} was removed.` : "Staff removed.",
-    });
+    try {
+      await deleteStaff(targetId);
+      toast({
+        title: "Staff removed",
+        description: member ? `${member.name} was removed.` : "Staff removed.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not remove staff",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -222,8 +259,12 @@ export default function AdminStaff() {
                   </td>
                 </tr>
               )}
-              {filtered.map((member) => {
+              {pageStaff.map((member) => {
                 const articleCount = articlesByAuthor[member.name] ?? 0;
+                const adminUser = users.find(
+                  (u) =>
+                    u.name.trim().toLowerCase() === member.name.trim().toLowerCase(),
+                );
                 return (
                   <tr
                     key={member.id}
@@ -251,14 +292,13 @@ export default function AdminStaff() {
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         Admin:{" "}
                         <span className="font-medium text-foreground">
-                          {users.some(
-                            (u) =>
-                              u.name.trim().toLowerCase() ===
-                              member.name.trim().toLowerCase(),
-                          )
-                            ? "Yes"
-                            : "No"}
+                          {adminUser ? "Yes" : "No"}
                         </span>
+                        {adminUser ? (
+                          <span className="ml-2 text-[11px] font-medium text-primary">
+                            ({adminUser.role})
+                          </span>
+                        ) : null}
                       </p>
                     </td>
                     <td className="px-5 py-4">
@@ -301,6 +341,32 @@ export default function AdminStaff() {
               })}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-3 bg-white dark:bg-[#1A1A18]">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Page <span className="text-foreground font-semibold">{page}</span> of{" "}
+            <span className="text-foreground font-semibold">{totalPages}</span>
+            <span className="text-muted-foreground"> · {perPage} per page</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!canPrev}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={!canNext}
+              onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   FileText,
-  Image as ImageIcon,
   Megaphone,
   Users,
   IdCard,
@@ -27,7 +26,6 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { label: "Dashboard", path: "/admin", icon: LayoutDashboard },
     { label: "Articles", path: "/admin/articles", icon: FileText },
-    { label: "Media Library", path: "/admin/media", icon: ImageIcon },
     { label: "Advertisements", path: "/admin/ads", icon: Megaphone },
     { label: "Admin Users", path: "/admin/users", icon: Users },
     { label: "Staff", path: "/admin/staff", icon: IdCard },
@@ -87,6 +85,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             <LogOut className="w-4 h-4" />
             Sign Out
           </button>
+
+          <p className="mt-5 text-center text-[11px] text-[#777]">
+            Developed by PetroCore<span className="text-[#C41E3A]">X</span>
+          </p>
         </div>
       </aside>
 

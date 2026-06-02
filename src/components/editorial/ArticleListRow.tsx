@@ -61,48 +61,57 @@ export function ArticleListRow({
 }: ArticleListRowProps) {
   const hasExcerpt = Boolean(article.excerpt?.trim());
 
+  const showByline = Boolean(article.author?.trim() || article.date);
+
   return (
     <article
       className={cn(
-        "group flex flex-col gap-6 md:flex-row md:items-start md:gap-8",
+        "group grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8 lg:grid-cols-[240px_minmax(0,1fr)]",
         className,
       )}
     >
       <Link
         href={`/article/${article.id}`}
-        className="image-zoom flex aspect-4/3 w-full shrink-0 items-center justify-center overflow-hidden rounded-sm border border-border bg-background md:aspect-3/2 md:w-[200px] lg:w-[240px]"
+        className="image-zoom flex aspect-4/3 w-full items-center justify-center self-start overflow-hidden rounded-sm border border-border bg-background md:aspect-3/2 md:w-full"
       >
         <ArticleListImage src={article.image} alt={article.title} />
       </Link>
 
-      <div className="flex w-full min-w-0 flex-1 flex-col">
-        <SectionLabel className="mb-2">{article.category}</SectionLabel>
-
-        <Link href={`/article/${article.id}`} className="block w-full">
-          <h2
-            className={cn(
-              "w-full font-serif text-2xl leading-snug line-clamp-2 text-pretty transition-colors group-hover:text-primary lg:text-[1.6rem]",
-              titleClassName,
-            )}
-          >
-            {article.title}
-          </h2>
-        </Link>
-
-        {(hasExcerpt || article.author || article.date) && (
-          <div className="mt-3 w-full">
-            {hasExcerpt ? (
-              <p className="m-0 line-clamp-2 overflow-hidden text-[15px] leading-snug text-muted-foreground">
-                {article.excerpt}
-              </p>
-            ) : null}
-            <ListRowByline
-              author={article.author}
-              date={article.date}
-              className={hasExcerpt ? "mt-3" : undefined}
-            />
-          </div>
+      <div
+        className={cn(
+          "flex min-w-0 flex-col gap-4",
+          showByline &&
+            "md:grid md:h-full md:min-h-full md:grid-rows-[1fr_auto] md:gap-5",
         )}
+      >
+        <div className="min-w-0 md:min-h-0">
+          <SectionLabel className="mb-2">{article.category}</SectionLabel>
+
+          <Link href={`/article/${article.id}`} className="block w-full">
+            <h2
+              className={cn(
+                "w-full font-serif text-2xl leading-snug line-clamp-2 text-pretty transition-colors group-hover:text-primary lg:text-[1.6rem]",
+                titleClassName,
+              )}
+            >
+              {article.title}
+            </h2>
+          </Link>
+
+          {hasExcerpt ? (
+            <p className="m-0 mt-3 line-clamp-2 overflow-hidden text-[15px] leading-relaxed text-muted-foreground">
+              {article.excerpt}
+            </p>
+          ) : null}
+        </div>
+
+        {showByline ? (
+          <ListRowByline
+            author={article.author}
+            date={article.date}
+            className="shrink-0"
+          />
+        ) : null}
       </div>
     </article>
   );

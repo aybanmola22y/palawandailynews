@@ -4,7 +4,7 @@ import type { Database } from "@/lib/supabase/database.types";
 import { fetchPublishedSummaries } from "@/lib/articles/fetch-published-summaries";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 function getAnonServerClient() {
   const url = getSupabaseUrl();
@@ -38,8 +38,7 @@ export async function GET() {
 
     return NextResponse.json(articles, {
       headers: {
-        "Cache-Control":
-          "public, s-maxage=300, stale-while-revalidate=600, max-age=60",
+        "Cache-Control": "private, no-store, max-age=0",
       },
     });
   } catch (err) {

@@ -280,11 +280,13 @@ export default function AdminAds() {
   const headerBanner = getAdByPlacement("header-banner");
   const homepageMid = ads.find((a) => a.placement === "homepage-mid");
   const articleInline = ads.find((a) => a.placement === "article-inline");
+  const homepageLatestSidebar = getAdByPlacement("sidebar");
   const otherAds = ads.filter(
     (a) =>
       a.placement !== "header-banner" &&
       a.placement !== "homepage-mid" &&
-      a.placement !== "article-inline",
+      a.placement !== "article-inline" &&
+      a.placement !== "sidebar",
   );
 
   return (
@@ -325,6 +327,16 @@ export default function AdminAds() {
           onSave={(changes) => updateAd(articleInline.id, changes)}
           description="Sponsored unit embedded midway through every published article (after the first few paragraphs)."
           recommendedSize="860 × 484 px (16:9)"
+        />
+      )}
+
+      {homepageLatestSidebar && (
+        <AdEditor
+          ad={homepageLatestSidebar}
+          onSave={(changes) => updateAd(homepageLatestSidebar.id, changes)}
+          description="Vertical ad in the right column beside the Latest News list on the homepage (sticky on large screens)."
+          recommendedSize="400 × 800 px or larger (fills sidebar beside Latest News)"
+          previewHref="/"
         />
       )}
 

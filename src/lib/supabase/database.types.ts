@@ -21,20 +21,10 @@ export type ArticleRow = {
   updated_at: string;
 };
 
-export type MediaRow = {
-  id: string;
-  name: string;
-  url: string;
-  folder: "articles" | "columnists" | "lifestyle" | "logos";
-  size_bytes: number;
-  created_at: string;
-  updated_at: string;
-};
-
 export type AdRow = {
   id: string;
   client: string;
-  placement: "header-banner" | "homepage-mid" | "article-inline" | "sidebar";
+  placement: string;
   placement_label: string;
   status: "Active" | "Scheduled" | "Inactive";
   image_url: string;
@@ -91,15 +81,6 @@ export type Database = {
         Row: ArticleRow;
         Insert: ArticleInsertRow;
         Update: ArticleUpdateRow;
-        Relationships: [];
-      };
-      media: {
-        Row: MediaRow;
-        Insert: Omit<MediaRow, "created_at" | "updated_at"> & {
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: Partial<MediaRow>;
         Relationships: [];
       };
       ads: {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useArticles } from "@/store/articles-context";
 import {
   LineChart,
@@ -11,6 +11,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
+  Brush,
 } from "recharts";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import {
@@ -20,6 +21,13 @@ import {
 
 export default function AdminDashboard() {
   const { articles } = useArticles();
+  const [publishingSeries, setPublishingSeries] = useState<
+    { label: string; published: number }[]
+  >([]);
+  const [publishingError, setPublishingError] = useState<string | null>(null);
+  const [brush, setBrush] = useState<{ startIndex: number; endIndex: number } | null>(
+    null,
+  );
 
   const cmsDrafts = articles.filter((a) => a.status === "Draft").length;
   const cmsReview = articles.filter((a) => a.status === "Review").length;
@@ -56,14 +64,54 @@ export default function AdminDashboard() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [articles]);
 
-  const trafficData = useMemo(() => {
-    const base = Math.max(cmsPublished / 7, 2);
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    return days.map((name, i) => ({
-      name,
-      views: Math.round(base * (0.7 + ((i * 17) % 10) / 10)),
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/admin/analytics/publishing?days=120", {
+      credentials: "include",
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data: { series?: { label: string; published: number }[] }) => {
+        if (cancelled) return;
+        const series = data.series ?? [];
+        setPublishingSeries(series);
+        setPublishingError(null);
+
+        // Default view: last 30 days, draggable via Brush.
+        if (series.length > 0) {
+          const endIndex = series.length - 1;
+          const startIndex = Math.max(0, series.length - 30);
+          setBrush({ startIndex, endIndex });
+        }
+      })
+      .catch(async (err) => {
+        if (cancelled) return;
+        try {
+          const text =
+            typeof err?.text === "function" ? await err.text() : String(err);
+          setPublishingError(text || "Failed to load publishing analytics");
+        } catch {
+          setPublishingError("Failed to load publishing analytics");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const chartData = useMemo(() => {
+    if (publishingSeries.length > 0) {
+      return publishingSeries.map((d) => ({
+        name: d.label,
+        published: d.published,
+      }));
+    }
+    // Fallback: simple per-day estimate so the chart isn't empty while loading.
+    const base = Math.max(cmsPublished / 30, 1);
+    return Array.from({ length: 30 }, (_, i) => ({
+      name: `Day ${i + 1}`,
+      published: Math.round(base),
     }));
-  }, [cmsPublished]);
+  }, [publishingSeries, cmsPublished]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -132,14 +180,15 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white dark:bg-[#1A1A18] border border-border p-6">
           <h2 className="text-[14px] font-bold uppercase tracking-widest mb-1">
-            Traffic Over Time
+            Publishing activity
           </h2>
           <p className="text-[11px] text-muted-foreground mb-6">
-            Placeholder chart — not real analytics yet.
+            Published stories per day. Drag the slider to view earlier dates.
+            {publishingError ? ` (${publishingError})` : ""}
           </p>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trafficData}>
+              <LineChart data={chartData}>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   vertical={false}
@@ -167,12 +216,31 @@ export default function AdminDashboard() {
                 />
                 <Line
                   type="monotone"
-                  dataKey="views"
+                  dataKey="published"
                   stroke="#C41E3A"
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, fill: "#C41E3A" }}
                 />
+                {chartData.length > 31 ? (
+                  <Brush
+                    dataKey="name"
+                    height={26}
+                    stroke="#C41E3A"
+                    travellerWidth={10}
+                    startIndex={brush?.startIndex}
+                    endIndex={brush?.endIndex}
+                    onChange={(next) => {
+                      if (!next) return;
+                      if (
+                        typeof next.startIndex === "number" &&
+                        typeof next.endIndex === "number"
+                      ) {
+                        setBrush({ startIndex: next.startIndex, endIndex: next.endIndex });
+                      }
+                    }}
+                  />
+                ) : null}
               </LineChart>
             </ResponsiveContainer>
           </div>

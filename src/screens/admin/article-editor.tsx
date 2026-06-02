@@ -24,6 +24,7 @@ import {
   getArticleCategoryOptions,
   resolveCategoryForSelect,
 } from "@/lib/article-categories";
+import { validateArticleForPersist } from "@/lib/articles/article-persist";
 import Link from "next/link";
 import { ArrowLeft, Save, Send, Upload, Link as LinkIcon, X, Image, Eye, Pencil } from "lucide-react";
 
@@ -52,8 +53,15 @@ function plainTextFromHtml(html: string): string {
 }
 
 export default function ArticleEditor() {
-  const { articles, loading, error, addArticle, updateArticle, ensureArticleContent } =
-    useArticles();
+  const {
+    articles,
+    loading,
+    error,
+    addArticle,
+    updateArticle,
+    ensureArticleContent,
+    refreshArticles,
+  } = useArticles();
   const params = useParams<{ id?: string }>();
   const router = useRouter();
 
@@ -68,6 +76,8 @@ export default function ArticleEditor() {
   const [htmlEditorSeedKey, setHtmlEditorSeedKey] = useState("new");
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [cmsWritable, setCmsWritable] = useState<boolean | null>(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [editorMode, setEditorMode] = useState<"write" | "preview">("write");
 
@@ -93,6 +103,21 @@ export default function ArticleEditor() {
       ),
     [articles, form.category, existing?.category],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/admin/cms-status", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { canWriteArticles?: boolean } | null) => {
+        if (!cancelled && data) setCmsWritable(Boolean(data.canWriteArticles));
+      })
+      .catch(() => {
+        if (!cancelled) setCmsWritable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isEdit || !articleId) return;
@@ -220,24 +245,45 @@ export default function ArticleEditor() {
 
   async function handleSave(status: ArticleStatus) {
     setSaveError(null);
+
     const updated = {
       ...form,
       status,
       content: bodyForPreviewAndSave(),
-      excerpt: form.excerpt.trim() ? plainToArticleHtml(form.excerpt.trim()) : form.excerpt,
+      excerpt: form.excerpt.trim(),
     };
 
+    const validationError = validateArticleForPersist(updated);
+    if (validationError) {
+      setSaveError(validationError);
+      return;
+    }
+
+    if (cmsWritable === false) {
+      setSaveError(
+        "Cannot save: add SUPABASE_SERVICE_ROLE_KEY to .env and restart npm run dev.",
+      );
+      return;
+    }
+
+    setSaving(true);
     try {
       if (isEdit && articleId) {
         await updateArticle(articleId, updated);
       } else {
-        await addArticle(updated);
+        const saved = await addArticle(updated);
+        if (!saved?.id) {
+          throw new Error("Article was not saved to Supabase.");
+        }
       }
+      await refreshArticles();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       router.push("/admin/articles");
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save article");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -291,15 +337,19 @@ export default function ArticleEditor() {
             </span>
           )}
           <button
+            type="button"
+            disabled={saving}
             onClick={() => handleSave("Draft")}
-            className="flex items-center gap-2 px-5 py-2.5 border border-border text-[11px] font-bold uppercase tracking-widest hover:bg-muted transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 border border-border text-[11px] font-bold uppercase tracking-widest hover:bg-muted transition-colors disabled:opacity-50"
           >
             <Save className="w-3.5 h-3.5" />
             Save Draft
           </button>
           <button
+            type="button"
+            disabled={saving}
             onClick={() => handleSave(form.status || "Published")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#C41E3A] text-white text-[11px] font-bold uppercase tracking-widest hover:bg-[#A01830] transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#C41E3A] text-white text-[11px] font-bold uppercase tracking-widest hover:bg-[#A01830] transition-colors disabled:opacity-50"
           >
             <Send className="w-3.5 h-3.5" />
             {isEdit ? "Update" : "Publish"}
@@ -309,6 +359,20 @@ export default function ArticleEditor() {
 
       {error && (
         <div className="px-8 py-2 bg-destructive/10 text-destructive text-sm shrink-0">{error}</div>
+      )}
+
+      {cmsWritable === false && (
+        <div className="px-8 py-2 bg-destructive/10 text-destructive text-sm shrink-0">
+          Supabase writes are disabled: set <code className="text-xs">SUPABASE_SERVICE_ROLE_KEY</code>{" "}
+          in <code className="text-xs">.env</code> and restart the dev server. Articles will not persist
+          until this is configured.
+        </div>
+      )}
+
+      {saving && (
+        <div className="px-8 py-2 bg-muted text-muted-foreground text-sm shrink-0">
+          Saving to Supabase…
+        </div>
       )}
 
       <div className="flex flex-1 overflow-hidden">

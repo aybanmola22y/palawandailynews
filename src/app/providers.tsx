@@ -6,7 +6,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { ArticlesProvider } from "@/store/articles-context";
 import { AdsProvider } from "@/store/ads-context";
-import { MediaProvider } from "@/store/media-context";
 import { UsersProvider } from "@/store/users-context";
 import { StaffProvider } from "@/store/staff-context";
 import { useUsers } from "@/store/users-context";
@@ -36,16 +35,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
       <ArticlesProvider>
         <AdsProvider>
-          <MediaProvider>
-            <UsersProvider>
-              <StaffProviders>
-                <TooltipProvider>
-                  {children}
-                  <Toaster />
-                </TooltipProvider>
-              </StaffProviders>
-            </UsersProvider>
-          </MediaProvider>
+          <UsersProvider>
+            <StaffProviders>
+              <TooltipProvider>
+                {children}
+                <Toaster />
+              </TooltipProvider>
+            </StaffProviders>
+          </UsersProvider>
         </AdsProvider>
       </ArticlesProvider>
     </ThemeProvider>

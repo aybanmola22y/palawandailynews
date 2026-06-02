@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
@@ -13,12 +13,9 @@ import {
   resolveDisplayExcerpt,
 } from "@/lib/render-content";
 import { ArticleInlineAd } from "@/components/ads/ArticleInlineAd";
-import { ArticleCardImage } from "@/components/editorial/ArticleCardImage";
 import { ArticleListImage } from "@/components/editorial/ArticleListImage";
-import {
-  ArticleBylineMeta,
-  ArticleCardBylineFooter,
-} from "@/components/editorial/ArticleByline";
+import { ArticleBylineMeta } from "@/components/editorial/ArticleByline";
+import { ArticleListRow } from "@/components/editorial/ArticleListRow";
 import { PopularNewsSidebar } from "@/components/editorial/PopularNewsSidebar";
 import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
@@ -132,12 +129,22 @@ export default function ArticleDetail() {
   }, [articles, lookupId, rawId]);
 
   const progress = useReadingProgress();
+  const [loadingBody, setLoadingBody] = useState(false);
 
   useEffect(() => {
     if (!article?.id) return;
-    if (!article.content?.trim()) {
-      void ensureArticleContent(article.id);
+    if (article.content?.trim()) {
+      setLoadingBody(false);
+      return;
     }
+    let cancelled = false;
+    setLoadingBody(true);
+    void ensureArticleContent(article.id).finally(() => {
+      if (!cancelled) setLoadingBody(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [article?.id, article?.content, ensureArticleContent]);
 
   const latestSidebar = useMemo(() => {
@@ -229,7 +236,11 @@ export default function ArticleDetail() {
             />
 
             <div className="prose prose-neutral dark:prose-invert max-w-none">
-              {renderContent(articleBody)}
+              {loadingBody && !article.content?.trim() ? (
+                <p className="text-muted-foreground">Loading story…</p>
+              ) : (
+                renderContent(articleBody)
+              )}
             </div>
 
             <ArticleInlineAd />
@@ -280,41 +291,15 @@ export default function ArticleDetail() {
           </div>
 
           {related.length > 0 && (
-            <section className="border-t border-border bg-secondary/30 py-14 mt-14">
+            <section className="mt-14 border-t border-border pt-10">
               <DividerLabel label="Related stories" />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+              <div className="mt-8 divide-y divide-border">
                 {related.map((rel) => (
-                  <article
+                  <ArticleListRow
                     key={rel.id}
-                    className="editorial-card group flex h-full flex-col overflow-hidden p-0 hover:border-primary/40 transition-colors"
-                  >
-                    <Link
-                      href={`/article/${rel.id}`}
-                      className="flex min-h-0 flex-1 flex-col"
-                    >
-                      <div className="shrink-0 border-b border-border bg-background">
-                        <ArticleCardImage
-                          article={rel}
-                          fit="contain"
-                          className="aspect-4/3 w-full"
-                          imgClassName="h-full w-full"
-                        />
-                      </div>
-                      <div className="flex flex-1 flex-col p-4">
-                        <SectionLabel className="mb-2">{rel.category}</SectionLabel>
-                        <h3 className="mb-3 font-serif text-lg leading-snug line-clamp-3 group-hover:text-primary transition-colors">
-                          {rel.title}
-                        </h3>
-                        <p className="text-[13px] leading-relaxed text-muted-foreground line-clamp-2">
-                          {rel.excerpt}
-                        </p>
-                      </div>
-                    </Link>
-                    <ArticleCardBylineFooter
-                      author={rel.author}
-                      date={rel.date}
-                    />
-                  </article>
+                    article={rel}
+                    className="py-8 first:pt-6"
+                  />
                 ))}
               </div>
             </section>

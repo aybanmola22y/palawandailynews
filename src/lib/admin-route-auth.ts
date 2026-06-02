@@ -28,28 +28,26 @@ export async function requireAdminRouteAuth(): Promise<
   }
 
   if (useSupabaseAdminAuth()) {
-    const supabase = await createServerSupabaseClient();
-    if (!supabase) {
-      return NextResponse.json(
-        { error: "Supabase is not configured." },
-        { status: 503 },
-      );
+    try {
+      const supabase = await createServerSupabaseClient();
+      if (supabase) {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+
+        if (authUser) {
+          const profile = await fetchAdminProfileForAuthUser(supabase, authUser);
+          if (profile) {
+            return { user: profile, service };
+          }
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+      }
+      // Fall through to cookie session auth if Supabase Auth is unavailable
+      // (network timeout) or no user session exists.
+    } catch {
+      // Fall back to cookie session auth on transient Supabase outages.
     }
-
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const profile = await fetchAdminProfileForAuthUser(supabase, authUser);
-    if (!profile) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    return { user: profile, service };
   }
 
   const cookieStore = await cookies();

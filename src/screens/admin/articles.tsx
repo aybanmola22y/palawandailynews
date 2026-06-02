@@ -27,7 +27,7 @@ export default function AdminArticles() {
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const perPage = 25;
+  const perPage = 10;
 
   useEffect(() => {
     const status = searchParams.get("status");
@@ -76,14 +76,20 @@ export default function AdminArticles() {
 
   const { items: pageItems, totalPages } = useMemo(
     () => paginateArticles(filtered, page, perPage),
-    [filtered, page],
+    [filtered, page, perPage],
   );
 
   const canPrev = page > 1;
   const canNext = page < totalPages;
 
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   function handleDelete(id: string) {
-    void deleteArticle(id).finally(() => setDeleteId(null));
+    // Close confirmation dialog immediately.
+    setDeleteId(null);
+    void deleteArticle(id);
   }
 
   return (
@@ -178,31 +184,6 @@ export default function AdminArticles() {
             <span className="text-[12px] text-muted-foreground sm:ml-auto whitespace-nowrap">
               {filtered.length} of {articles.length}
             </span>
-          </div>
-
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between gap-3 bg-white dark:bg-[#1A1A18]">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              Page <span className="text-foreground font-semibold">{page}</span> of{" "}
-              <span className="text-foreground font-semibold">{totalPages}</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={!canPrev}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
-              >
-                Prev
-              </button>
-              <button
-                type="button"
-                disabled={!canNext}
-                onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
-              >
-                Next
-              </button>
-            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -338,6 +319,32 @@ export default function AdminArticles() {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="px-4 py-3 border-t border-border flex items-center justify-between gap-3 bg-white dark:bg-[#1A1A18]">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Page <span className="text-foreground font-semibold">{page}</span> of{" "}
+              <span className="text-foreground font-semibold">{totalPages}</span>
+              <span className="text-muted-foreground"> · {perPage} per page</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={!canPrev}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
+              >
+                Prev
+              </button>
+              <button
+                type="button"
+                disabled={!canNext}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
 

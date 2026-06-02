@@ -7,6 +7,9 @@ const layoutGridClass = {
   /** Opinion / lifestyle sidebars with thumbnail + title lists (matches article sidebar width). */
   wideSidebar:
     "grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(420px,520px)] 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,560px)] gap-10 xl:gap-12 2xl:gap-16",
+  /** Opinion: wider rail so columnist cards are not squeezed. */
+  opinion:
+    "grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(520px,42%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(580px,44%)] gap-8 xl:gap-10 2xl:gap-12",
   /** Article detail: cap main column so the sidebar sits beside the story. */
   article:
     "grid w-full max-w-[min(100%,calc(56rem+440px+2.5rem))] 2xl:max-w-[min(100%,calc(56rem+480px+3rem))] grid-cols-1 xl:grid-cols-[minmax(0,56rem)_440px] 2xl:grid-cols-[minmax(0,56rem)_480px] gap-8 xl:gap-10 2xl:gap-12",
@@ -36,7 +39,9 @@ export function PageShell({
         <aside
           className={cn(
             "min-w-0 space-y-8",
-            (layout === "default" || layout === "wideSidebar") &&
+            (layout === "default" ||
+              layout === "wideSidebar" ||
+              layout === "opinion") &&
               "xl:border-l xl:border-border xl:pl-10 2xl:pl-12",
             layout === "article" &&
               "xl:border-l xl:border-border xl:pl-8 2xl:pl-10",

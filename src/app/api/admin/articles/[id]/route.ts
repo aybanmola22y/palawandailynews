@@ -4,6 +4,7 @@ import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { ArticleUpdate } from "@/types/article";
 import type { ArticleUpdateRow } from "@/lib/supabase/database.types";
 import { resolveImageUrl } from "@/lib/articles/map-article-row";
+import { revalidatePublicArticleSummaries } from "@/lib/articles/revalidate-public-summaries";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -93,6 +94,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: "Article not found" }, { status: 404 });
   }
 
+  revalidatePublicArticleSummaries();
   return NextResponse.json(rowToArticle(data));
 }
 
@@ -107,5 +109,6 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  revalidatePublicArticleSummaries();
   return new NextResponse(null, { status: 204 });
 }

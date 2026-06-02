@@ -7,19 +7,18 @@ import { Mail } from "lucide-react";
 import { useArticles } from "@/store/articles-context";
 import { useUsers } from "@/store/users-context";
 import { useStaff } from "@/store/staff-context";
-import {
-  AuthorStoryCard,
-  AuthorStoryFeatured,
-} from "@/components/editorial/AuthorStoryCard";
-import type { Article } from "@/store/articles-context";
+import { ArticleListRow } from "@/components/editorial/ArticleListRow";
 import {
   authorBio,
   findStaffByAuthorName,
   findUserByAuthorName,
+  formatAuthorDisplayName,
   getArticlesByAuthor,
   resolveAuthorNameBySlug,
   resolveAuthorPublicProfile,
 } from "@/lib/author-profile";
+import { paginateArticles } from "@/lib/site-articles";
+import { cn } from "@/lib/utils";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -28,35 +27,6 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#4F63E8]">
         {children}
       </span>
-    </div>
-  );
-}
-
-function StoryBento({ articles }: { articles: Article[] }) {
-  if (articles.length === 0) return null;
-
-  if (articles.length === 1) {
-    return (
-      <div className="max-w-xl">
-        <AuthorStoryCard article={articles[0]} toneIndex={1} />
-      </div>
-    );
-  }
-
-  const [tall, ...stack] = articles;
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-      <AuthorStoryCard article={tall} toneIndex={1} />
-      <div className="flex flex-col gap-6 lg:gap-8">
-        {stack.slice(0, 2).map((article, i) => (
-          <AuthorStoryCard
-            key={article.id}
-            article={article}
-            toneIndex={i + 2}
-          />
-        ))}
-      </div>
     </div>
   );
 }
@@ -85,6 +55,10 @@ export default function AuthorProfile() {
   }, [nameFromQuery, localResolvedName]);
 
   const authorName = resolvedName;
+  const displayName = useMemo(
+    () => (authorName ? formatAuthorDisplayName(authorName) : ""),
+    [authorName],
+  );
 
   const user = useMemo(
     () => (authorName ? findUserByAuthorName(users, authorName) : undefined),
@@ -116,23 +90,37 @@ export default function AuthorProfile() {
 
   const profile = useMemo(
     () =>
-      authorName
-        ? resolveAuthorPublicProfile(authorName, user, staffProfile, categories)
+      displayName
+        ? resolveAuthorPublicProfile(displayName, user, staffProfile, categories)
         : null,
-    [authorName, user, staffProfile, categories],
+    [displayName, user, staffProfile, categories],
   );
 
-  if (!authorName || !profile) {
+  if (!authorName || !displayName || !profile) {
     notFound();
   }
 
-  const shortBio = authorBio(authorName, user?.role);
-  const firstName = authorName.split(" ")[0];
+  const shortBio = authorBio(displayName, user?.role);
+  const firstName = displayName.split(" ")[0];
 
-  const featured = publishedArticles[0];
-  const moreStories = publishedArticles.slice(1);
-  const bentoStories = moreStories.slice(0, 3);
-  const gridStories = moreStories.slice(3);
+  const [page, setPage] = useState(1);
+  const perPage = 12;
+
+  const { items: pageArticles, totalPages } = useMemo(
+    () => paginateArticles(publishedArticles, page, perPage),
+    [publishedArticles, page, perPage],
+  );
+
+  const canPrev = page > 1;
+  const canNext = page < totalPages;
+
+  useEffect(() => {
+    setPage(1);
+  }, [authorName]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
     <div className="min-h-screen bg-[#F7F6F4] dark:bg-background">
@@ -157,7 +145,7 @@ export default function AuthorProfile() {
             </div>
 
             <h1 className="font-serif text-[2.5rem] sm:text-[3rem] lg:text-[3.25rem] leading-[1.05] font-bold text-foreground tracking-tight">
-              {authorName}
+              {displayName}
             </h1>
 
             <p className="mt-3 text-lg sm:text-xl font-medium text-[#6B5B95] dark:text-[#a898c8]">
@@ -191,12 +179,22 @@ export default function AuthorProfile() {
             Published Articles
           </h2>
           <p className="mt-3 text-[15px] sm:text-base text-muted-foreground max-w-3xl leading-relaxed">
-            Recent investigations, features, and analysis from {firstName}
-            — covering{" "}
-            {categories.length > 0
-              ? categories.join(", ").toLowerCase()
-              : "news across Palawan"}
-            .
+            {publishedArticles.length > 0 ? (
+              <>
+                {publishedArticles.length} published{" "}
+                {publishedArticles.length === 1 ? "story" : "stories"} from{" "}
+                {firstName}
+                {categories.length > 0
+                  ? ` — ${categories.slice(0, 6).join(", ").toLowerCase()}`
+                  : ""}
+                {categories.length > 6 ? ", and more" : ""}.
+              </>
+            ) : (
+              <>
+                Recent work from {firstName} will appear here when stories are
+                published.
+              </>
+            )}
           </p>
         </header>
 
@@ -214,23 +212,55 @@ export default function AuthorProfile() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-8 lg:space-y-10">
-            {featured ? <AuthorStoryFeatured article={featured} toneIndex={0} /> : null}
+          <>
+            <div className="divide-y divide-border border-t border-border bg-background rounded-sm">
+              {pageArticles.map((article) => (
+                <ArticleListRow
+                  key={article.id}
+                  article={article}
+                  className="py-8 first:pt-6"
+                />
+              ))}
+            </div>
 
-            <StoryBento articles={bentoStories} />
-
-            {gridStories.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6 items-stretch">
-                {gridStories.map((article, i) => (
-                  <AuthorStoryCard
-                    key={article.id}
-                    article={article}
-                    toneIndex={i + 4}
-                  />
-                ))}
+            {totalPages > 1 ? (
+              <div className="mt-8 flex items-center justify-between gap-4 border-t border-border pt-8">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Page <span className="text-foreground font-semibold">{page}</span>{" "}
+                  of{" "}
+                  <span className="text-foreground font-semibold">{totalPages}</span>
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!canPrev}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    className={cn(
+                      "px-4 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold rounded-sm border transition-colors",
+                      !canPrev
+                        ? "bg-card text-muted-foreground border-border opacity-50 cursor-not-allowed"
+                        : "border-border hover:border-primary hover:text-primary",
+                    )}
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canNext}
+                    onClick={() => setPage((p) => p + 1)}
+                    className={cn(
+                      "px-4 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold rounded-sm border transition-colors",
+                      !canNext
+                        ? "bg-card text-muted-foreground border-border opacity-50 cursor-not-allowed"
+                        : "border-border hover:border-primary hover:text-primary",
+                    )}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             ) : null}
-          </div>
+          </>
         )}
 
       </div>

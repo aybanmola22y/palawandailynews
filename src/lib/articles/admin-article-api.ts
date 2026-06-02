@@ -18,6 +18,9 @@ export async function fetchAdminArticle(id: string): Promise<Article | null> {
   return (await res.json()) as Article;
 }
 
+const SERVICE_ROLE_MSG =
+  "Cannot save to Supabase: add SUPABASE_SERVICE_ROLE_KEY to .env and restart the dev server.";
+
 export async function createAdminArticle(article: ArticleInsert): Promise<Article> {
   const res = await fetch("/api/admin/articles", {
     method: "POST",
@@ -25,8 +28,15 @@ export async function createAdminArticle(article: ArticleInsert): Promise<Articl
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(article),
   });
+  if (res.status === 503) {
+    throw new Error((await parseError(res)) || SERVICE_ROLE_MSG);
+  }
   if (!res.ok) throw new Error(await parseError(res));
-  return (await res.json()) as Article;
+  const saved = (await res.json()) as Article;
+  if (!saved?.id?.trim()) {
+    throw new Error("Article was not saved — server returned no id.");
+  }
+  return saved;
 }
 
 export async function patchAdminArticle(

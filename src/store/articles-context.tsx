@@ -13,11 +13,13 @@ import {
 import { usePathname } from "next/navigation";
 import type { Article, ArticleInsert, ArticleStatus, ArticleUpdate } from "@/types/article";
 import {
+  ARTICLES_CACHE_BUST_KEY,
+  ARTICLES_SUMMARIES_CACHE_KEY,
   clearArticlesCache,
-  isArticlesCacheFresh,
   readArticlesCache,
   writeArticlesCache,
 } from "@/lib/articles/articles-cache";
+import { dedupeArticlesById } from "@/lib/articles/dedupe-articles";
 import {
   loadPublicSummariesBootstrap,
   loadPublicSummariesFull,
@@ -45,7 +47,7 @@ interface ArticlesContextType {
   error: string | null;
   refreshArticles: () => Promise<void>;
   ensureArticleContent: (id: string) => Promise<void>;
-  addArticle: (article: ArticleInsert) => Promise<void>;
+  addArticle: (article: ArticleInsert) => Promise<Article>;
   updateArticle: (id: string, changes: ArticleUpdate) => Promise<void>;
   deleteArticle: (id: string) => Promise<void>;
 }
@@ -105,12 +107,8 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
 
     const cached = readArticlesCache();
     if (cached?.length && mounted.current) {
-      setArticles(cached);
+      setArticles(dedupeArticlesById(cached));
       setLoading(false);
-      if (isArticlesCacheFresh()) {
-        setArchiveLoading(false);
-        return;
-      }
     } else if (mounted.current) {
       setLoading(true);
     }
@@ -119,14 +117,14 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       if (!cached?.length) {
         const bootstrap = await loadPublicSummariesBootstrap();
         if (mounted.current && bootstrap.length) {
-          setArticles(bootstrap);
+          setArticles(dedupeArticlesById(bootstrap));
           setLoading(false);
         }
       }
 
       if (mounted.current) setArchiveLoading(true);
 
-      const full = await loadPublicSummariesFull();
+      const full = dedupeArticlesById(await loadPublicSummariesFull());
       if (mounted.current) {
         setArticles(full);
         writeArticlesCache(full);
@@ -154,13 +152,16 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       if (loadingContentIds.current.has(id)) return;
 
       loadingContentIds.current.add(id);
+      const normalizedId = id.toLowerCase();
       try {
         const full = needsFullContent
           ? await fetchAdminArticle(id)
           : await repo.getById(id);
         if (full && mounted.current) {
           setArticles((prev) =>
-            prev.map((a) => (a.id === id ? { ...a, ...full } : a)),
+            prev.map((a) =>
+              a.id.toLowerCase() === normalizedId ? { ...a, ...full } : a,
+            ),
           );
         }
       } catch {
@@ -180,7 +181,20 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshArticles]);
 
-  function addArticle(article: ArticleInsert): Promise<void> {
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (
+        event.key === ARTICLES_CACHE_BUST_KEY ||
+        event.key === ARTICLES_SUMMARIES_CACHE_KEY
+      ) {
+        void refreshArticles();
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [refreshArticles]);
+
+  function addArticle(article: ArticleInsert): Promise<Article> {
     if (!isSupabaseConfigured()) {
       setError(SUPABASE_NOT_CONFIGURED_MSG);
       return Promise.reject(new Error(SUPABASE_NOT_CONFIGURED_MSG));
@@ -197,15 +211,15 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     };
     setArticles((prev) => [optimistic, ...prev]);
 
-    const persist = needsFullContent
-      ? createAdminArticle(article)
-      : repo.create(article);
-
-    return persist
-      .then((created) => {
+    return createAdminArticle(article)
+      .then(async (created) => {
         setArticles((prev) =>
           prev.map((a) => (a.id === tempId ? created : a)),
         );
+        if (needsFullContent) {
+          await refreshArticles();
+        }
+        return created;
       })
       .catch((err) => {
         setArticles((prev) => prev.filter((a) => a.id !== tempId));
@@ -230,15 +244,14 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       ),
     );
 
-    const persist = needsFullContent
-      ? patchAdminArticle(id, changes)
-      : repo.update(id, changes);
-
-    return persist
-      .then((saved) => {
+    return patchAdminArticle(id, changes)
+      .then(async (saved) => {
         setArticles((prev) =>
           prev.map((a) => (a.id === id ? { ...a, ...saved } : a)),
         );
+        if (needsFullContent) {
+          await refreshArticles();
+        }
       })
       .catch((err) => {
         setArticles(previous);
@@ -259,14 +272,18 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     const previous = articlesRef.current;
     setArticles((prev) => prev.filter((a) => a.id !== id));
 
-    const persist = needsFullContent ? deleteAdminArticle(id) : repo.delete(id);
-
-    return persist.catch((err) => {
-      setArticles(previous);
-      const message = err instanceof Error ? err.message : "Failed to delete article";
-      setError(message);
-      throw err instanceof Error ? err : new Error(message);
-    });
+    return deleteAdminArticle(id)
+      .then(async () => {
+        if (needsFullContent) {
+          await refreshArticles();
+        }
+      })
+      .catch((err) => {
+        setArticles(previous);
+        const message = err instanceof Error ? err.message : "Failed to delete article";
+        setError(message);
+        throw err instanceof Error ? err : new Error(message);
+      });
   }
 
   return (

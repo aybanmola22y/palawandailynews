@@ -16,23 +16,24 @@ export async function loadPublicSummariesBootstrap(): Promise<Article[]> {
 }
 
 export async function loadPublicSummariesFull(): Promise<Article[]> {
+  const client = getSupabaseBrowserClient();
+  if (client) {
+    return fetchPublishedSummaries(client, { publishedOnly: true });
+  }
+
   try {
     const res = await fetch(API_PATH, {
       method: "GET",
       credentials: "same-origin",
+      cache: "no-store",
     });
     if (res.ok) {
       const data = (await res.json()) as Article[];
-      if (Array.isArray(data) && data.length) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch {
-    /* fall through to direct Supabase */
+    /* fall through */
   }
 
-  const client = getSupabaseBrowserClient();
-  if (!client) {
-    throw new Error("Unable to load articles");
-  }
-
-  return fetchPublishedSummaries(client, { publishedOnly: true });
+  throw new Error("Unable to load articles");
 }

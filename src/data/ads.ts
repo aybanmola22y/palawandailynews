@@ -22,5 +22,13 @@ export const ads = [
     status: "Active",
     impressions: 12000,
     clicks: 340
+  },
+  {
+    id: "AD004",
+    client: "Advertise with Palawan Daily News",
+    placement: "Sidebar",
+    status: "Inactive",
+    impressions: 0,
+    clicks: 0
   }
 ];

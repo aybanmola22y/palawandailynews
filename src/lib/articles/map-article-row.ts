@@ -1,6 +1,8 @@
 import type { Article, ArticleStatus } from "@/types/article";
 import type { ArticleInsertRow, ArticleRow } from "@/lib/supabase/database.types";
 import { resolveAuthorDisplayName } from "@/lib/author-resolve";
+import { normalizeArticleDateForDb } from "@/lib/articles/article-persist";
+import { excerptToPlainText } from "@/lib/html-editor-content";
 import { getPrimaryCategory } from "@/lib/site-articles";
 import { getMediaBaseUrl } from "@/lib/supabase/env";
 
@@ -31,7 +33,7 @@ export function articleToRow(article: Article): ArticleInsertRow {
     category: article.category,
     author: article.author,
     tags: article.tags ?? [],
-    date: article.date,
+    date: normalizeArticleDateForDb(article.date),
     reading_time: article.readingTime,
     image_url: resolveImageUrl(article.image),
     is_breaking: article.isBreaking,
@@ -47,7 +49,7 @@ export function rowToArticle(row: ArticleRow): Article {
   return {
     id: row.id,
     title: row.title,
-    excerpt: row.excerpt ?? "",
+    excerpt: excerptToPlainText(row.excerpt ?? ""),
     content: row.content ?? "",
     category: getPrimaryCategory(row.category ?? "News"),
     author: resolveAuthorDisplayName(row.author ?? ""),

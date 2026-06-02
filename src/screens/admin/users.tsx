@@ -29,11 +29,11 @@ const ROLE_INFO: Record<
   },
   Editor: {
     description: "Manages daily publishing workflow and reviews submissions.",
-    permissions: ["Articles & media", "Ads", "Publish content"],
+    permissions: ["Articles", "Ads", "Publish content"],
   },
   Writer: {
     description: "Creates and edits stories; drafts go to review.",
-    permissions: ["Own articles", "Media uploads", "Save drafts"],
+    permissions: ["Own articles", "Save drafts"],
   },
   Moderator: {
     description: "Oversees comments, legal notices, and community content.",

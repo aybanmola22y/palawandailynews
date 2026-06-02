@@ -190,4 +190,13 @@
     max-width: 100%;
     height: auto;
   }
+
+  .voices-strip-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .voices-strip-scroll::-webkit-scrollbar {
+    display: none;
+  }
 }

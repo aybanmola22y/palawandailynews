@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { useMemo } from "react";
 import { HeaderAdBanner } from "@/components/ads/HeaderAdBanner";
 import { HomepageMidBanner } from "@/components/ads/HomepageMidBanner";
+import { HomepageLatestNewsSidebarAd } from "@/components/ads/HomepageLatestNewsSidebarAd";
 import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { SectionHeading } from "@/components/editorial/SectionHeading";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
@@ -109,15 +110,18 @@ export default function Home() {
 
         <DividerLabel label="Latest News" />
 
-        <section className="mb-4 divide-y divide-border border-t border-border">
-          {latestStrip.map((article: Article) => (
-            <ArticleListRow
-              key={article.id}
-              article={article}
-              className="py-8 first:pt-6"
-            />
-          ))}
-        </section>
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(400px,28%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,30%)] gap-8 xl:gap-12 items-stretch">
+          <section className="min-w-0 divide-y divide-border border-t border-border">
+            {latestStrip.map((article: Article) => (
+              <ArticleListRow
+                key={article.id}
+                article={article}
+                className="py-8 first:pt-6"
+              />
+            ))}
+          </section>
+          <HomepageLatestNewsSidebarAd className="flex w-full min-h-[520px] xl:min-h-0 xl:h-full" />
+        </div>
 
         <div className="flex justify-center mt-2 mb-2">
           <Link

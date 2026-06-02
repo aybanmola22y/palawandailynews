@@ -131,8 +131,8 @@ export function resolveAuthorPublicProfile(
   const first = authorName.split(" ")[0] || authorName;
 
   const bio =
-    user?.bio?.trim() ||
     staff?.bio?.trim() ||
+    user?.bio?.trim() ||
     `${authorName} is a journalist with Palawan Daily News, covering ${beats}. With years of experience in regional reporting, ${first} brings depth, context, and accountability to the stories that shape island communities.`;
 
   return {
@@ -140,12 +140,12 @@ export function resolveAuthorPublicProfile(
     email: user?.email,
     avatar: user?.avatar ?? staff?.avatar ?? authorInitials(authorName),
     profileTitle:
-      user?.profileTitle?.trim() ||
       staff?.profileTitle?.trim() ||
+      user?.profileTitle?.trim() ||
       defaults.profileTitle,
-    quote: user?.quote?.trim() || staff?.quote?.trim() || defaults.quote,
+    quote: staff?.quote?.trim() || user?.quote?.trim() || defaults.quote,
     bio,
     badgeLabel:
-      user?.badgeLabel?.trim() || staff?.badgeLabel?.trim() || defaults.badgeLabel,
+      staff?.badgeLabel?.trim() || user?.badgeLabel?.trim() || defaults.badgeLabel,
   };
 }

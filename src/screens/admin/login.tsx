@@ -134,7 +134,7 @@ export default function AdminLogin() {
           <CardHeader className="space-y-1 pb-4 text-center">
             <CardTitle className="font-serif text-2xl">Welcome back</CardTitle>
             <CardDescription className="text-balance">
-              Sign in to manage articles, media, and team settings.
+              Sign in to manage articles, ads, and team settings.
             </CardDescription>
           </CardHeader>
           <CardContent>

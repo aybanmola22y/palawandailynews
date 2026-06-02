@@ -12,6 +12,7 @@ import type { AdminUser } from "@/store/users-context";
 import type { Article } from "@/store/articles-context";
 import { authorInitials, authorSlug } from "@/lib/author-profile";
 import { defaultAuthorProfile } from "@/lib/author-profile-defaults";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export interface StaffProfile {
   id: string;
@@ -103,9 +104,9 @@ function saveStaff(staff: StaffProfile[]) {
 
 type StaffContextType = {
   staff: StaffProfile[];
-  addStaff: (entry: Omit<StaffProfile, "id" | "updatedAt" | "avatar">) => void;
-  updateStaff: (id: string, changes: Partial<StaffProfile>) => void;
-  deleteStaff: (id: string) => void;
+  addStaff: (entry: Omit<StaffProfile, "id" | "updatedAt" | "avatar">) => Promise<void>;
+  updateStaff: (id: string, changes: Partial<StaffProfile>) => Promise<void>;
+  deleteStaff: (id: string) => Promise<void>;
   findStaffByName: (name: string) => StaffProfile | undefined;
 };
 
@@ -175,36 +176,126 @@ export function StaffProvider({
 
   const seed = Array.from(seedByName.values());
 
+  // `seed` is a freshly-built array every render, so using it directly in a
+  // `useEffect` dependency can cause infinite update loops.
+  // We instead depend on a stable signature derived from the seed contents.
+  const seedKey = seed
+    .map((s) => ({
+      name: s.name.trim().toLowerCase(),
+      id: s.id,
+      profileTitle: s.profileTitle,
+      badgeLabel: s.badgeLabel,
+      // quote/bio can be long; include the full strings to avoid collisions.
+      quote: s.quote,
+      bio: s.bio,
+      avatar: s.avatar,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const seedKeyStr = JSON.stringify(seedKey);
+
   const [staff, setStaff] = useState<StaffProfile[]>(seed);
   const hydrated = useRef(false);
 
   useEffect(() => {
-    setStaff(loadStaff(seed));
-    hydrated.current = true;
+    let cancelled = false;
+
+    async function run() {
+      const client = getSupabaseBrowserClient();
+      if (!client) {
+        // Supabase not configured: fall back to local cached/seed staff.
+        setStaff(loadStaff(seed));
+        hydrated.current = true;
+        return;
+      }
+
+      try {
+        const { data, error } = await client
+          .from("staff_profiles")
+          .select(
+            "id, name, profile_title, quote, bio, badge_label, avatar, updated_at",
+          )
+          .order("name", { ascending: true });
+
+        if (cancelled) return;
+
+        if (error || !data?.length) {
+          setStaff(loadStaff(seed));
+        } else {
+          setStaff(
+            data.map((row) => ({
+              id: row.id,
+              name: row.name,
+              profileTitle: row.profile_title ?? "",
+              quote: row.quote ?? "",
+              bio: row.bio ?? "",
+              badgeLabel: row.badge_label ?? "Palawan",
+              avatar: row.avatar ?? authorInitials(row.name),
+              updatedAt: Date.parse(row.updated_at) || Date.now(),
+            })),
+          );
+        }
+        hydrated.current = true;
+      } catch {
+        if (cancelled) return;
+        setStaff(loadStaff(seed));
+        hydrated.current = true;
+      }
+    }
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally run once; Supabase is the source of truth.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!hydrated.current) return;
-    saveStaff(staff);
-  }, [staff]);
+  async function addStaff(
+    entry: Omit<StaffProfile, "id" | "updatedAt" | "avatar">,
+  ) {
+    const tempId = `temp-${Date.now()}`;
+    const optimistic = withDefaults({ ...entry, id: tempId, updatedAt: Date.now() });
+    setStaff((prev) => [optimistic, ...prev]);
 
-  function addStaff(entry: Omit<StaffProfile, "id" | "updatedAt" | "avatar">) {
-    const id = `S${Date.now()}`;
-    const enriched = withDefaults({ ...entry, id });
-    setStaff((prev) => [enriched, ...prev]);
+    const res = await fetch("/api/admin/staff-profiles", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entry),
+    });
+
+    if (!res.ok) {
+      setStaff((prev) => prev.filter((s) => s.id !== tempId));
+      const text = await res.text().catch(() => "");
+      throw new Error(text || "Failed to add staff profile");
+    }
+
+    const saved = (await res.json()) as StaffProfile;
+    setStaff((prev) => prev.map((s) => (s.id === tempId ? saved : s)));
   }
 
-  function updateStaff(id: string, changes: Partial<StaffProfile>) {
+  async function updateStaff(id: string, changes: Partial<StaffProfile>) {
+    const existing = staff.find((s) => s.id === id);
+    if (!existing) return;
+
+    const payload = {
+      name: (changes.name ?? existing.name).trim(),
+      profileTitle: changes.profileTitle ?? existing.profileTitle,
+      quote: changes.quote ?? existing.quote,
+      bio: changes.bio ?? existing.bio,
+      badgeLabel: changes.badgeLabel ?? existing.badgeLabel,
+    };
+
+    const previous = staff;
     setStaff((prev) =>
       prev.map((s) =>
         s.id === id
           ? withDefaults(
               {
                 ...s,
-                ...changes,
-                name: changes.name ?? s.name,
-                avatar: changes.name ? authorInitials(changes.name) : s.avatar,
+                ...payload,
+                name: payload.name,
+                avatar: authorInitials(payload.name),
                 updatedAt: Date.now(),
               },
               undefined,
@@ -212,10 +303,38 @@ export function StaffProvider({
           : s,
       ),
     );
+
+    const res = await fetch(`/api/admin/staff-profiles/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      setStaff(previous);
+      const text = await res.text().catch(() => "");
+      throw new Error(text || "Failed to update staff profile");
+    }
+
+    const saved = (await res.json()) as StaffProfile;
+    setStaff((prev) => prev.map((s) => (s.id === id ? saved : s)));
   }
 
-  function deleteStaff(id: string) {
+  async function deleteStaff(id: string) {
+    const previous = staff;
     setStaff((prev) => prev.filter((s) => s.id !== id));
+
+    const res = await fetch(`/api/admin/staff-profiles/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+
+    if (!res.ok) {
+      setStaff(previous);
+      const text = await res.text().catch(() => "");
+      throw new Error(text || "Failed to delete staff profile");
+    }
   }
 
   function findStaffByName(name: string) {

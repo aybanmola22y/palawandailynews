@@ -10,25 +10,25 @@ import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
 
 export async function GET() {
   if (useSupabaseAdminAuth()) {
-    const supabase = await createServerSupabaseClient();
-    if (!supabase) {
-      return NextResponse.json({ user: null }, { status: 401 });
+    try {
+      const supabase = await createServerSupabaseClient();
+      if (supabase) {
+        const {
+          data: { user: authUser },
+        } = await supabase.auth.getUser();
+
+        if (authUser) {
+          const profile = await fetchAdminProfileForAuthUser(supabase, authUser);
+          if (profile) {
+            return NextResponse.json({ user: profile });
+          }
+          return NextResponse.json({ user: null }, { status: 403 });
+        }
+      }
+      // If Supabase auth is unavailable, fall back to legacy cookie session.
+    } catch {
+      // Fall back below.
     }
-
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-
-    if (!authUser) {
-      return NextResponse.json({ user: null }, { status: 401 });
-    }
-
-    const profile = await fetchAdminProfileForAuthUser(supabase, authUser);
-    if (!profile) {
-      return NextResponse.json({ user: null }, { status: 403 });
-    }
-
-    return NextResponse.json({ user: profile });
   }
 
   const cookieStore = await cookies();

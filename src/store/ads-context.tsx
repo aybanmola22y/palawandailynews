@@ -16,7 +16,8 @@ export type AdPlacement =
   | "header-banner"
   | "homepage-mid"
   | "article-inline"
-  | "sidebar";
+  | "sidebar"
+  | (string & {});
 
 export interface Ad {
   id: string;
@@ -32,12 +33,16 @@ export interface Ad {
 }
 
 const STORAGE_KEY = "pdn_ads";
-const STORAGE_VERSION = "v3";
+const STORAGE_VERSION = "v4";
 const VERSION_KEY = "pdn_ads_version";
 
 function mapPlacement(label: string, placement?: AdPlacement): AdPlacement {
-  if (placement === "header-banner" || placement === "sidebar") return "header-banner";
-  if (label === "Header Banner" || label === "Sidebar") return "header-banner";
+  if (placement === "header-banner") return "header-banner";
+  if (placement === "sidebar") return "sidebar";
+  if (placement === "homepage-mid") return "homepage-mid";
+  if (placement === "article-inline") return "article-inline";
+  if (label === "Header Banner") return "header-banner";
+  if (label === "Sidebar" || label === "Homepage Latest News") return "sidebar";
   if (label === "Homepage Banner") return "homepage-mid";
   if (label === "In-Article") return "article-inline";
   return "sidebar";
@@ -47,6 +52,7 @@ function defaultImage(placement: AdPlacement): string {
   if (placement === "header-banner") return "/images/header-ad-banner.svg";
   if (placement === "homepage-mid") return "/images/home-ad-banner.svg";
   if (placement === "article-inline") return "/images/article-ad-banner.svg";
+  if (placement === "sidebar") return "/images/sidebar-ad-banner.svg";
   return "";
 }
 
@@ -54,7 +60,8 @@ function defaultAlt(placement: AdPlacement, client: string): string {
   if (
     placement === "header-banner" ||
     placement === "homepage-mid" ||
-    placement === "article-inline"
+    placement === "article-inline" ||
+    placement === "sidebar"
   ) {
     return `Advertisement — ${client}`;
   }
@@ -64,7 +71,11 @@ function defaultAlt(placement: AdPlacement, client: string): string {
 function normalizeAd(ad: Ad): Ad {
   const placement = mapPlacement(ad.placementLabel, ad.placement);
   const placementLabel =
-    placement === "header-banner" ? "Header Banner" : ad.placementLabel;
+    placement === "header-banner"
+      ? "Header Banner"
+      : placement === "sidebar"
+        ? "Homepage Latest News"
+        : ad.placementLabel;
 
   return {
     ...ad,
@@ -76,7 +87,8 @@ function normalizeAd(ad: Ad): Ad {
       ad.linkUrl ||
       (placement === "header-banner" ||
       placement === "homepage-mid" ||
-      placement === "article-inline"
+      placement === "article-inline" ||
+      placement === "sidebar"
         ? "/advertise"
         : ""),
   };
@@ -99,7 +111,8 @@ const seedAds: Ad[] = initialAds.map((ad) => {
     linkUrl:
       placement === "homepage-mid" ||
       placement === "article-inline" ||
-      placement === "header-banner"
+      placement === "header-banner" ||
+      placement === "sidebar"
         ? "/advertise"
         : "",
     altText: defaultAlt(placement, ad.client),

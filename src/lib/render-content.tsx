@@ -1,4 +1,9 @@
 import { Fragment, type ReactNode } from "react";
+import {
+  decodeStoredHtml,
+  excerptToPlainText,
+  looksLikeHtml as contentLooksLikeHtml,
+} from "@/lib/html-editor-content";
 
 function getAdInsertIndex(blockCount: number): number | null {
   if (blockCount < 2) return null;
@@ -7,7 +12,11 @@ function getAdInsertIndex(blockCount: number): number | null {
 }
 
 function looksLikeHtml(content: string) {
-  return /<\/?[a-z][\s\S]*>/i.test(content);
+  return contentLooksLikeHtml(decodeStoredHtml(content));
+}
+
+function decodeArticleContent(content: string) {
+  return decodeStoredHtml(content?.trim() ?? "");
 }
 
 /** Plain text for comparing excerpt vs body (NFKC + HTML entities simplified). */
@@ -232,6 +241,7 @@ function stripExcerptPrefixOverlap(content: string, excerpt?: string): string {
 
     if (skip > 0) {
       const kept = blocks.slice(skip);
+      if (kept.length === 0) return content;
       return kept.map((t) => `<p>${escapeHtmlText(processPlainBlockText(t))}</p>`).join("\n");
     }
     return content;
@@ -262,13 +272,18 @@ export function resolveDisplayExcerpt(
   const trimmed = excerpt?.trim();
   if (!trimmed) return undefined;
 
-  const excerptNorm = normalizeContentPlainText(trimmed);
+  const plainExcerpt = excerptToPlainText(trimmed);
+  if (!plainExcerpt) return undefined;
+
+  const excerptNorm = normalizeContentPlainText(plainExcerpt);
   const bodyNorm = normalizeContentPlainText(content);
   const leading = getLeadingBodyPlainText(content);
   const maxLen = 280;
 
   if (!bodyNorm) {
-    return trimmed.length > maxLen ? `${trimmed.slice(0, maxLen).trim()}…` : trimmed;
+    return plainExcerpt.length > maxLen
+      ? `${plainExcerpt.slice(0, maxLen).trim()}…`
+      : plainExcerpt;
   }
 
   if (excerptNorm === bodyNorm) return undefined;
@@ -291,18 +306,18 @@ export function resolveDisplayExcerpt(
 
   if (excerptNorm.length > bodyNorm.length * 0.55 && bodyNorm.length > 200) {
     const sentence =
-      trimmed.match(/^[\s\S]{1,300}?[.!?…](?:\s|$)/)?.[0]?.trim() ??
-      trimmed.slice(0, maxLen).trim();
+      plainExcerpt.match(/^[\s\S]{1,300}?[.!?…](?:\s|$)/)?.[0]?.trim() ??
+      plainExcerpt.slice(0, maxLen).trim();
     return sentence.length >= 40 && sentence.length <= maxLen + 20
       ? sentence
       : undefined;
   }
 
-  if (trimmed.length > maxLen) {
-    return `${trimmed.slice(0, maxLen).trim()}…`;
+  if (plainExcerpt.length > maxLen) {
+    return `${plainExcerpt.slice(0, maxLen).trim()}…`;
   }
 
-  return trimmed;
+  return plainExcerpt;
 }
 
 function excerptMatchesBody(excerptNorm: string, bodyNorm: string): boolean {
@@ -430,7 +445,8 @@ function filterDuplicateParagraphBlocks(blocks: string[]): string[] {
   const norms = filtered.map((b) => normalizeContentPlainText(b));
   const restartAt = findArticleRestartIndex(norms);
   if (restartAt != null) {
-    return filtered.slice(0, restartAt);
+    const sliced = filtered.slice(0, restartAt);
+    if (sliced.length > 0) return sliced;
   }
 
   return filtered;
@@ -485,11 +501,20 @@ export function stripDuplicateExcerptFromContent(content: string, excerpt?: stri
 export function prepareArticleBody(content: string, excerpt?: string): string {
   if (!content?.trim()) return content;
 
-  let body = stripDuplicateExcerptFromContent(content, excerpt);
-  body = stripExcerptPrefixOverlap(body, excerpt);
+  const original = decodeArticleContent(content);
+  const plainExcerpt = excerpt ? excerptToPlainText(excerpt) : undefined;
+  let body = stripDuplicateExcerptFromContent(original, plainExcerpt);
+  body = stripExcerptPrefixOverlap(body, plainExcerpt);
   body = stripLeadingConsecutiveDuplicateParagraphs(body);
   body = looksLikeHtml(body) ? rebuildCleanArticleHtml(body) : dedupePlainBody(body);
   body = stripLeadingConsecutiveDuplicateParagraphs(body);
+
+  if (!body.trim() && original) {
+    return looksLikeHtml(original)
+      ? rebuildCleanArticleHtml(original) || sanitizeArticleHtml(original)
+      : original;
+  }
+
   return body;
 }
 
@@ -558,7 +583,9 @@ export function renderContent(
   content: string,
   options?: { midContentAd?: ReactNode },
 ) {
-  if (!content || content.trim() === "" || content.trim() === "Full content here...") {
+  const decoded = decodeArticleContent(content);
+
+  if (!decoded || decoded === "Full content here...") {
     return (
       <p className="text-muted-foreground">
         No content has been added to this article yet.
@@ -566,16 +593,16 @@ export function renderContent(
     );
   }
 
-  if (looksLikeHtml(content)) {
+  if (looksLikeHtml(decoded)) {
     return (
       <div
         className={HTML_CONTENT_CLASS}
-        dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(content) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeArticleHtml(decoded) }}
       />
     );
   }
 
-  const blocks = content.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  const blocks = decoded.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
   const adInsertIndex = options?.midContentAd
     ? getAdInsertIndex(blocks.length)
     : null;
