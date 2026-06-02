@@ -139,7 +139,24 @@ export default function Lifestyle() {
 
         <div className="mt-8">
           <PageShell layout="wideSidebar" sidebar={<LifestyleSidebar />}>
-            <div className="mb-6 flex items-center justify-between gap-4">
+            {lifestyleArticles.length === 0 ? (
+              <div className="editorial-card p-8 text-center text-muted-foreground">
+                No lifestyle stories yet. Import articles with category
+                &quot;Lifestyle&quot;.
+              </div>
+            ) : (
+              <div className="divide-y divide-border border-t border-border">
+                {lifestyleArticles.map((article) => (
+                  <ArticleListRow
+                    key={article.id}
+                    article={article}
+                    className="py-8 first:pt-6"
+                  />
+                ))}
+              </div>
+            )}
+
+            <div className="mt-8 flex items-center justify-between gap-4 border-t border-border pt-8">
               <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
                 Page <span className="text-foreground font-semibold">{page}</span> of{" "}
                 <span className="text-foreground font-semibold">{totalPages || 1}</span>
@@ -179,23 +196,6 @@ export default function Lifestyle() {
                 </button>
               </div>
             </div>
-
-            {lifestyleArticles.length === 0 ? (
-              <div className="editorial-card p-8 text-center text-muted-foreground">
-                No lifestyle stories yet. Import articles with category
-                &quot;Lifestyle&quot;.
-              </div>
-            ) : (
-              <div className="divide-y divide-border border-t border-border">
-                {lifestyleArticles.map((article) => (
-                  <ArticleListRow
-                    key={article.id}
-                    article={article}
-                    className="py-8 first:pt-6"
-                  />
-                ))}
-              </div>
-            )}
           </PageShell>
         </div>
       </div>

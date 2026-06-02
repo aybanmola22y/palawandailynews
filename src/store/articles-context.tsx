@@ -24,6 +24,12 @@ import {
 } from "@/lib/articles/load-public-summaries";
 import { getPublishedArticles } from "@/lib/site-articles";
 import {
+  createAdminArticle,
+  deleteAdminArticle,
+  fetchAdminArticle,
+  patchAdminArticle,
+} from "@/lib/articles/admin-article-api";
+import {
   getArticlesRepository,
   isSupabaseConfigured,
   SUPABASE_NOT_CONFIGURED_MSG,
@@ -39,9 +45,9 @@ interface ArticlesContextType {
   error: string | null;
   refreshArticles: () => Promise<void>;
   ensureArticleContent: (id: string) => Promise<void>;
-  addArticle: (article: ArticleInsert) => void;
-  updateArticle: (id: string, changes: ArticleUpdate) => void;
-  deleteArticle: (id: string) => void;
+  addArticle: (article: ArticleInsert) => Promise<void>;
+  updateArticle: (id: string, changes: ArticleUpdate) => Promise<void>;
+  deleteArticle: (id: string) => Promise<void>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType | null>(null);
@@ -141,13 +147,17 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       if (!isSupabaseConfigured()) return;
 
-      const existing = articlesRef.current.find((a) => a.id === id);
-      if (existing?.content?.trim()) return;
+      const existing = articlesRef.current.find(
+        (a) => a.id.toLowerCase() === id.toLowerCase(),
+      );
+      if (!needsFullContent && existing?.content?.trim()) return;
       if (loadingContentIds.current.has(id)) return;
 
       loadingContentIds.current.add(id);
       try {
-        const full = await repo.getById(id);
+        const full = needsFullContent
+          ? await fetchAdminArticle(id)
+          : await repo.getById(id);
         if (full && mounted.current) {
           setArticles((prev) =>
             prev.map((a) => (a.id === id ? { ...a, ...full } : a)),
@@ -159,7 +169,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
         loadingContentIds.current.delete(id);
       }
     },
-    [repo],
+    [repo, needsFullContent],
   );
 
   useEffect(() => {
@@ -170,10 +180,10 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshArticles]);
 
-  function addArticle(article: ArticleInsert) {
+  function addArticle(article: ArticleInsert): Promise<void> {
     if (!isSupabaseConfigured()) {
       setError(SUPABASE_NOT_CONFIGURED_MSG);
-      return;
+      return Promise.reject(new Error(SUPABASE_NOT_CONFIGURED_MSG));
     }
 
     clearArticlesCache();
@@ -182,12 +192,16 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     const optimistic: Article = {
       ...article,
       id: tempId,
+      tags: article.tags ?? [],
       updatedAt: Date.now(),
     };
     setArticles((prev) => [optimistic, ...prev]);
 
-    repo
-      .create(article)
+    const persist = needsFullContent
+      ? createAdminArticle(article)
+      : repo.create(article);
+
+    return persist
       .then((created) => {
         setArticles((prev) =>
           prev.map((a) => (a.id === tempId ? created : a)),
@@ -195,14 +209,16 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       })
       .catch((err) => {
         setArticles((prev) => prev.filter((a) => a.id !== tempId));
-        setError(err instanceof Error ? err.message : "Failed to create article");
+        const message = err instanceof Error ? err.message : "Failed to create article";
+        setError(message);
+        throw err instanceof Error ? err : new Error(message);
       });
   }
 
-  function updateArticle(id: string, changes: ArticleUpdate) {
+  function updateArticle(id: string, changes: ArticleUpdate): Promise<void> {
     if (!isSupabaseConfigured()) {
       setError(SUPABASE_NOT_CONFIGURED_MSG);
-      return;
+      return Promise.reject(new Error(SUPABASE_NOT_CONFIGURED_MSG));
     }
 
     clearArticlesCache();
@@ -214,16 +230,28 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       ),
     );
 
-    repo.update(id, changes).catch((err) => {
-      setArticles(previous);
-      setError(err instanceof Error ? err.message : "Failed to update article");
-    });
+    const persist = needsFullContent
+      ? patchAdminArticle(id, changes)
+      : repo.update(id, changes);
+
+    return persist
+      .then((saved) => {
+        setArticles((prev) =>
+          prev.map((a) => (a.id === id ? { ...a, ...saved } : a)),
+        );
+      })
+      .catch((err) => {
+        setArticles(previous);
+        const message = err instanceof Error ? err.message : "Failed to update article";
+        setError(message);
+        throw err instanceof Error ? err : new Error(message);
+      });
   }
 
-  function deleteArticle(id: string) {
+  function deleteArticle(id: string): Promise<void> {
     if (!isSupabaseConfigured()) {
       setError(SUPABASE_NOT_CONFIGURED_MSG);
-      return;
+      return Promise.reject(new Error(SUPABASE_NOT_CONFIGURED_MSG));
     }
 
     clearArticlesCache();
@@ -231,9 +259,13 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     const previous = articlesRef.current;
     setArticles((prev) => prev.filter((a) => a.id !== id));
 
-    repo.delete(id).catch((err) => {
+    const persist = needsFullContent ? deleteAdminArticle(id) : repo.delete(id);
+
+    return persist.catch((err) => {
       setArticles(previous);
-      setError(err instanceof Error ? err.message : "Failed to delete article");
+      const message = err instanceof Error ? err.message : "Failed to delete article";
+      setError(message);
+      throw err instanceof Error ? err : new Error(message);
     });
   }
 

@@ -51,42 +51,7 @@ export default function LatestNews() {
           description={`Reporting from across Palawan — environment, business, politics, and community. (${filtered.length} stories)`}
         />
 
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-            Page <span className="text-foreground font-semibold">{page}</span> of{" "}
-            <span className="text-foreground font-semibold">{totalPages}</span>
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              disabled={!canPrev}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className={cn(
-                "px-4 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold rounded-sm border transition-colors",
-                !canPrev
-                  ? "bg-card text-muted-foreground border-border opacity-50 cursor-not-allowed"
-                  : "bg-card text-foreground border-border hover:border-foreground/30 hover:text-foreground",
-              )}
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              disabled={!canNext}
-              onClick={() => setPage((p) => p + 1)}
-              className={cn(
-                "px-4 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold rounded-sm border transition-colors",
-                !canNext
-                  ? "bg-card text-muted-foreground border-border opacity-50 cursor-not-allowed"
-                  : "bg-card text-foreground border-border hover:border-foreground/30 hover:text-foreground",
-              )}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-8">
+        <div className="mb-8 flex flex-wrap gap-2">
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
@@ -117,6 +82,41 @@ export default function LatestNews() {
               <p className="text-sm">No articles found in this category.</p>
             </div>
           )}
+        </div>
+
+        <div className="mt-8 flex items-center justify-between gap-4 border-t border-border pt-8">
+          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            Page <span className="text-foreground font-semibold">{page}</span> of{" "}
+            <span className="text-foreground font-semibold">{totalPages || 1}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!canPrev}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className={cn(
+                "px-4 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold rounded-sm border transition-colors",
+                !canPrev
+                  ? "bg-card text-muted-foreground border-border opacity-50 cursor-not-allowed"
+                  : "bg-card text-foreground border-border hover:border-foreground/30 hover:text-foreground",
+              )}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              disabled={!canNext}
+              onClick={() => setPage((p) => p + 1)}
+              className={cn(
+                "px-4 py-2 text-[11px] uppercase tracking-[0.12em] font-semibold rounded-sm border transition-colors",
+                !canNext
+                  ? "bg-card text-muted-foreground border-border opacity-50 cursor-not-allowed"
+                  : "bg-card text-foreground border-border hover:border-foreground/30 hover:text-foreground",
+              )}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </PageShell>
     </div>

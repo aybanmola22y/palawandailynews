@@ -7,7 +7,6 @@ import { useArticles } from "@/store/articles-context";
 import { useToast } from "@/hooks/use-toast";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { Search, ExternalLink } from "lucide-react";
-import { defaultAuthorProfile } from "@/lib/author-profile-defaults";
 import { RolePermissionsPanel } from "@/components/admin/RolePermissionsPanel";
 import { TeamBreakdownPanel } from "@/components/admin/TeamBreakdownPanel";
 
@@ -46,13 +45,14 @@ type FormState = {
   name: string;
   email: string;
   role: UserRole;
+  password: string;
 };
 
 const emptyForm = (): FormState => ({
   name: "",
   email: "",
   role: "Writer",
-  ...defaultAuthorProfile("", "Writer"),
+  password: "",
 });
 
 function userToForm(user: AdminUser): FormState {
@@ -60,13 +60,16 @@ function userToForm(user: AdminUser): FormState {
     name: user.name ?? "",
     email: user.email ?? "",
     role: user.role,
+    password: "",
   };
 }
 
 export default function AdminUsers() {
-  const { users, addUser, updateUser, deleteUser } = useUsers();
+  const { users, loading, error, refreshUsers, addUser, updateUser, deleteUser } =
+    useUsers();
   const { articles } = useArticles();
   const { toast } = useToast();
+  const [saving, setSaving] = useState(false);
 
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -121,7 +124,7 @@ export default function AdminUsers() {
     setModal("edit");
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim() || !form.email.trim()) {
       toast({
         title: "Missing fields",
@@ -131,36 +134,80 @@ export default function AdminUsers() {
       return;
     }
 
-    if (modal === "add") {
-      addUser(form);
-      toast({ title: "User added", description: `${form.name} was added to the team.` });
-    } else if (modal === "edit" && editingId) {
-      updateUser(editingId, form);
-      toast({ title: "User updated", description: `${form.name}'s profile was saved.` });
-    }
-
-    setModal(null);
-    setEditingId(null);
-    setForm(emptyForm());
-  }
-
-  function handleDelete() {
-    if (!deleteId) return;
-    const user = users.find((u) => u.id === deleteId);
-    const ok = deleteUser(deleteId);
-    setDeleteId(null);
-    if (!ok) {
+    if (modal === "add" && !form.password.trim()) {
       toast({
-        title: "Cannot remove user",
-        description: "At least one Super Admin must remain on the team.",
+        title: "Password required",
+        description: "Set a password for the new Supabase login.",
         variant: "destructive",
       });
       return;
     }
-    toast({
-      title: "User removed",
-      description: user ? `${user.name} was removed.` : "User was removed.",
-    });
+
+    setSaving(true);
+    try {
+      if (modal === "add") {
+        await addUser({
+          name: form.name.trim(),
+          email: form.email.trim(),
+          role: form.role,
+          password: form.password,
+        });
+        toast({
+          title: "User added",
+          description: `${form.name} can sign in with the email and password you set.`,
+        });
+      } else if (modal === "edit" && editingId) {
+        await updateUser(editingId, {
+          name: form.name.trim(),
+          email: form.email.trim(),
+          role: form.role,
+        });
+        toast({
+          title: "User updated",
+          description: `${form.name}'s account was saved.`,
+        });
+      }
+      setModal(null);
+      setEditingId(null);
+      setForm(emptyForm());
+    } catch (err) {
+      toast({
+        title: "Could not save",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteId) return;
+    const user = users.find((u) => u.id === deleteId);
+    try {
+      const ok = await deleteUser(deleteId);
+      setDeleteId(null);
+      if (!ok) {
+        toast({
+          title: "Cannot remove user",
+          description: "At least one Super Admin must remain on the team.",
+          variant: "destructive",
+        });
+        return;
+      }
+      toast({
+        title: "User removed",
+        description: user
+          ? `${user.name} was removed from the CMS and Supabase Auth.`
+          : "User was removed.",
+      });
+    } catch (err) {
+      toast({
+        title: "Could not remove user",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -169,18 +216,35 @@ export default function AdminUsers() {
         <div>
           <h1 className="font-serif text-[32px] font-bold text-foreground">Admin Users</h1>
           <p className="text-[14px] text-muted-foreground mt-1 max-w-xl">
-            Manage CMS login accounts, roles, and access levels. Public-facing
-            author profiles are managed under <strong>Staff</strong>.
+            Synced with <strong>Supabase Authentication</strong> — users you add in
+            the Supabase dashboard appear here automatically. Public author profiles
+            are managed under <strong>Staff</strong>.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="bg-[#C41E3A] text-white px-4 py-2 text-[12px] font-bold uppercase tracking-widest hover:bg-[#A01830] transition-colors shrink-0"
-        >
-          Add Admin
-        </button>
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => void refreshUsers()}
+            disabled={loading}
+            className="px-4 py-2 text-[12px] font-bold uppercase tracking-widest border border-border hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {loading ? "Syncing…" : "Refresh"}
+          </button>
+          <button
+            type="button"
+            onClick={openAdd}
+            className="bg-[#C41E3A] text-white px-4 py-2 text-[12px] font-bold uppercase tracking-widest hover:bg-[#A01830] transition-colors"
+          >
+            Add Admin
+          </button>
+        </div>
       </header>
+
+      {error && (
+        <p className="text-[13px] text-destructive border border-destructive/30 bg-destructive/5 px-4 py-3">
+          {error}
+        </p>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <AdminStatCard label="Team members" value={users.length} hint="Active CMS accounts" />
@@ -260,7 +324,9 @@ export default function AdminUsers() {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                      No users match your filters.
+                      {loading
+                        ? "Loading users from Supabase…"
+                        : "No users match your filters."}
                     </td>
                   </tr>
                 )}
@@ -409,6 +475,26 @@ export default function AdminUsers() {
               />
             </div>
 
+            {modal === "add" && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  className="input"
+                  placeholder="Login password for Supabase Auth"
+                  autoComplete="new-password"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Same as when using Supabase → Authentication → Add user. Enable
+                  Auto confirm in Supabase if you create users there instead.
+                </p>
+              </div>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
                 Role
@@ -441,10 +527,11 @@ export default function AdminUsers() {
               </button>
               <button
                 type="button"
-                onClick={handleSave}
-                className="px-5 py-2 text-[12px] font-bold uppercase tracking-widest bg-[#C41E3A] text-white hover:bg-[#A01830] transition-colors"
+                onClick={() => void handleSave()}
+                disabled={saving}
+                className="px-5 py-2 text-[12px] font-bold uppercase tracking-widest bg-[#C41E3A] text-white hover:bg-[#A01830] transition-colors disabled:opacity-50"
               >
-                Save
+                {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>
@@ -475,7 +562,7 @@ export default function AdminUsers() {
               </button>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => void handleDelete()}
                 className="px-5 py-2 text-[12px] font-bold uppercase tracking-widest bg-[#C41E3A] text-white hover:bg-[#A01830] transition-colors"
               >
                 Remove

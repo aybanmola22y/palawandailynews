@@ -150,8 +150,6 @@
   /* Scroll performance for long lists */
   .scroll-perf-item {
     content-visibility: auto;
-    contain-intrinsic-size: auto 280px;
-    contain: layout paint style;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -161,5 +159,35 @@
     .image-zoom img {
       transition: none;
     }
+  }
+
+  /* Admin visual HTML body editor (imported WordPress articles) */
+  .html-body-editor p {
+    margin: 0 0 1.5rem;
+  }
+
+  .html-body-editor p:last-child {
+    margin-bottom: 0;
+  }
+
+  .html-body-editor h2 {
+    margin: 1.5rem 0 0.75rem;
+    font-family: var(--font-serif);
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .html-body-editor blockquote {
+    margin: 1.25rem 0;
+    padding-left: 1rem;
+    border-left: 3px solid hsl(var(--border));
+    color: hsl(var(--muted-foreground));
+  }
+
+  .html-body-editor img {
+    margin: 1.25rem 0;
+    max-width: 100%;
+    height: auto;
   }
 }

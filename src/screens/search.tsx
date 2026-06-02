@@ -5,10 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/editorial/PageHeader";
-import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
-import { ArticleBylineMeta } from "@/components/editorial/ArticleByline";
-import { ArticleListImage } from "@/components/editorial/ArticleListImage";
+import { ArticleListRow } from "@/components/editorial/ArticleListRow";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
 import { paginateArticles, searchArticles } from "@/lib/site-articles";
 import type { Article } from "@/store/articles-context";
@@ -122,43 +120,13 @@ export default function Search() {
 
             {!isSearching && items.length > 0 && (
               <>
-                <div className="divide-y divide-border border-t border-border mt-4">
+                <div className="mt-4 divide-y divide-border border-t border-border">
                   {items.map((a: Article) => (
-                    <article
+                    <ArticleListRow
                       key={a.id}
-                      className="scroll-perf-item py-8 first:pt-6 grid grid-cols-1 md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr] gap-6 md:gap-8 group"
-                    >
-                      <Link
-                        href={`/article/${a.id}`}
-                        className="image-zoom flex aspect-4/3 md:aspect-3/2 items-center justify-center overflow-hidden rounded-sm border border-border bg-background"
-                      >
-                        <ArticleListImage src={a.image} alt={a.title} />
-                      </Link>
-
-                      <div className="flex flex-col justify-center min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <SectionLabel>{a.category}</SectionLabel>
-                        </div>
-
-                        <Link href={`/article/${a.id}`} className="block mb-3">
-                          <h2 className="font-serif text-2xl lg:text-[1.65rem] leading-tight group-hover:text-primary transition-colors">
-                            {a.title}
-                          </h2>
-                        </Link>
-
-                        <p className="text-muted-foreground text-[15px] line-clamp-2 leading-relaxed max-w-3xl">
-                          {a.excerpt}
-                        </p>
-
-                        {a.author?.trim() ? (
-                          <ArticleBylineMeta
-                            author={a.author}
-                            date={a.date}
-                            className="text-[11px] tracking-wider"
-                          />
-                        ) : null}
-                      </div>
-                    </article>
+                      article={a}
+                      className="py-8 first:pt-6"
+                    />
                   ))}
                 </div>
 

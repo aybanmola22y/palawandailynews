@@ -83,8 +83,7 @@ export default function AdminArticles() {
   const canNext = page < totalPages;
 
   function handleDelete(id: string) {
-    deleteArticle(id);
-    setDeleteId(null);
+    void deleteArticle(id).finally(() => setDeleteId(null));
   }
 
   return (
