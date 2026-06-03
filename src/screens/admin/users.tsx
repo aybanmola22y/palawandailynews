@@ -6,7 +6,7 @@ import { useUsers, UserRole, type AdminUser } from "@/store/users-context";
 import { useArticles } from "@/store/articles-context";
 import { adminToast } from "@/lib/admin-toast";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
-import { Search, ExternalLink } from "lucide-react";
+import { Search, ExternalLink, ShieldCheck, ShieldAlert } from "lucide-react";
 import { RolePermissionsPanel } from "@/components/admin/RolePermissionsPanel";
 import { TeamBreakdownPanel } from "@/components/admin/TeamBreakdownPanel";
 
@@ -303,6 +303,9 @@ export default function AdminUsers() {
                   <th className="px-5 py-3 font-bold uppercase tracking-widest text-[11px] text-muted-foreground">
                     Activity
                   </th>
+                  <th className="px-5 py-3 font-bold uppercase tracking-widest text-[11px] text-muted-foreground">
+                    Authenticator
+                  </th>
                   <th className="px-5 py-3 font-bold uppercase tracking-widest text-[11px] text-muted-foreground text-right">
                     Actions
                   </th>
@@ -311,7 +314,7 @@ export default function AdminUsers() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                       {loading
                         ? "Loading users from Supabase…"
                         : "No users match your filters."}
@@ -366,6 +369,23 @@ export default function AdminUsers() {
                           <span className="w-2 h-2 rounded-full bg-[#008A45] shrink-0" />
                           <span className="text-muted-foreground">{user.lastActive}</span>
                         </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        {!user.authUserId ? (
+                          <span className="text-[11px] text-muted-foreground">
+                            No auth account
+                          </span>
+                        ) : user.authenticatorEnrolled ? (
+                          <span className="inline-flex items-center gap-1.5 text-[#008A45]">
+                            <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden />
+                            <span className="text-[11px] font-medium">Set up</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-[#B8860B] dark:text-[#F5A623]">
+                            <ShieldAlert className="w-4 h-4 shrink-0" aria-hidden />
+                            <span className="text-[11px] font-medium">Not set up</span>
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4 text-right">
                         <div className="flex gap-3 justify-end">

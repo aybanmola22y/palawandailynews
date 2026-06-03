@@ -300,7 +300,7 @@ export default function AdminLogin() {
               {gate === "captcha"
                 ? "Security Check"
                 : step === "mfa"
-                  ? "Authenticator code"
+                  ? "Authenticator Code"
                   : "Welcome back"}
             </CardTitle>
             <CardDescription className="text-balance">

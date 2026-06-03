@@ -30,6 +30,8 @@ export interface AdminUser {
   updatedAt: number;
   /** Linked Supabase Auth user id (when synced). */
   authUserId?: string;
+  /** Verified TOTP factor enrolled in Supabase Auth (checked server-side). */
+  authenticatorEnrolled?: boolean;
   /** Shown on the public author page under the name */
   profileTitle: string;
   /** Italic pull quote on author page */

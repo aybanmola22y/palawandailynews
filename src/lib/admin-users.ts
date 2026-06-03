@@ -3,6 +3,7 @@ import type { AdminUserRow } from "@/lib/supabase/database.types";
 import type { UserRole, AdminUser } from "@/store/users-context";
 import { defaultAuthorProfile } from "@/lib/author-profile-defaults";
 import { ensureAdminUserForAuthUser } from "@/lib/admin-auth";
+import { authUserHasVerifiedTotpEnrolled } from "@/lib/admin-mfa";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 function initials(name: string) {
@@ -40,6 +41,7 @@ export function formatAuthLastActive(iso: string | null | undefined): string {
 export function mapAdminUserRowToClient(
   row: AdminUserRow,
   lastSignInAt?: string | null,
+  authenticatorEnrolled = false,
 ): AdminUser {
   const role = row.role as UserRole;
   const defaults = defaultAuthorProfile(row.name, role);
@@ -58,6 +60,7 @@ export function mapAdminUserRowToClient(
     badgeLabel: row.badge_label || defaults.badgeLabel,
     updatedAt: Date.parse(row.updated_at) || Date.now(),
     authUserId: row.auth_user_id ?? undefined,
+    authenticatorEnrolled: row.auth_user_id ? authenticatorEnrolled : false,
   };
 }
 
@@ -109,6 +112,14 @@ export async function fetchAdminUsersForDashboard(): Promise<AdminUser[]> {
     authUsers.map((u) => [u.id, u.last_sign_in_at ?? null]),
   );
 
+  const totpEnrolledByAuthId = new Map<string, boolean>();
+  await Promise.all(
+    authUsers.map(async (authUser) => {
+      const enrolled = await authUserHasVerifiedTotpEnrolled(service, authUser.id);
+      totpEnrolledByAuthId.set(authUser.id, enrolled);
+    }),
+  );
+
   const { data: rows, error } = await service
     .from("admin_users")
     .select("*")
@@ -120,6 +131,9 @@ export async function fetchAdminUsersForDashboard(): Promise<AdminUser[]> {
     mapAdminUserRowToClient(
       row,
       row.auth_user_id ? signInByAuthId.get(row.auth_user_id) : null,
+      row.auth_user_id
+        ? (totpEnrolledByAuthId.get(row.auth_user_id) ?? false)
+        : false,
     ),
   );
 }

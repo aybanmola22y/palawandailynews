@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AdminAuthClient } from "@/lib/admin-auth";
 import type { Database } from "@/lib/supabase/database.types";
 
 type MfaClient = Pick<SupabaseClient<Database>, "auth">;
@@ -21,6 +22,34 @@ export function getVerifiedTotpFactor(
   >["data"],
 ) {
   return factors?.totp?.find((f) => f.status === "verified") ?? null;
+}
+
+type AdminListedFactor = {
+  factor_type?: string;
+  status?: string;
+};
+
+/** Factors returned by `auth.admin.mfa.listFactors` (flat list, not grouped). */
+export function adminFactorListHasVerifiedTotp(
+  factors: AdminListedFactor[] | null | undefined,
+): boolean {
+  return (
+    factors?.some(
+      (f) =>
+        f.factor_type?.toLowerCase() === "totp" && f.status === "verified",
+    ) ?? false
+  );
+}
+
+export async function authUserHasVerifiedTotpEnrolled(
+  service: AdminAuthClient,
+  authUserId: string,
+): Promise<boolean> {
+  const { data, error } = await service.auth.admin.mfa.listFactors({
+    userId: authUserId,
+  });
+  if (error) return false;
+  return adminFactorListHasVerifiedTotp(data?.factors);
 }
 
 /** Drop abandoned setup attempts so enroll can be retried. */
