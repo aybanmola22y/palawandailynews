@@ -14,6 +14,8 @@ type ArticleListRowProps = {
   article: Article;
   className?: string;
   titleClassName?: string;
+  /** Homepage Latest News: pin author/date to bottom of thumbnail on md+. */
+  alignBylineWithImageEnd?: boolean;
 };
 
 function ListRowByline({
@@ -58,6 +60,7 @@ export function ArticleListRow({
   article,
   className,
   titleClassName,
+  alignBylineWithImageEnd = true,
 }: ArticleListRowProps) {
   const hasExcerpt = Boolean(article.excerpt?.trim());
 
@@ -67,6 +70,7 @@ export function ArticleListRow({
     <article
       className={cn(
         "group grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8 lg:grid-cols-[240px_minmax(0,1fr)]",
+        alignBylineWithImageEnd ? "items-start md:items-stretch" : "items-start",
         className,
       )}
     >
@@ -79,12 +83,13 @@ export function ArticleListRow({
 
       <div
         className={cn(
-          "flex min-w-0 flex-col gap-4",
-          showByline &&
-            "md:grid md:h-full md:min-h-full md:grid-rows-[1fr_auto] md:gap-5",
+          "min-w-0",
+          alignBylineWithImageEnd &&
+            showByline &&
+            "md:flex md:min-h-[133px] md:flex-col lg:min-h-[160px]",
         )}
       >
-        <div className="min-w-0 md:min-h-0">
+        <div className="min-w-0">
           <SectionLabel className="mb-2">{article.category}</SectionLabel>
 
           <Link href={`/article/${article.id}`} className="block w-full">
@@ -109,7 +114,10 @@ export function ArticleListRow({
           <ListRowByline
             author={article.author}
             date={article.date}
-            className="shrink-0"
+            className={cn(
+              "shrink-0",
+              alignBylineWithImageEnd ? "mt-3 md:mt-auto md:pt-4" : "mt-3",
+            )}
           />
         ) : null}
       </div>

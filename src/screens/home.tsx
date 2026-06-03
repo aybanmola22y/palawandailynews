@@ -73,7 +73,7 @@ export default function Home() {
             {/* Hero */}
             <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 mb-4">
           <div className="lg:col-span-7 flex flex-col">
-            <Link href={`/article/${featured.id}`} className="group block flex-1">
+            <Link href={`/article/${featured.id}`} className="group block">
               <div className="image-zoom relative mb-5 aspect-[3/2] overflow-hidden rounded-sm bg-background">
                 {featured.image ? (
                   <img
@@ -96,7 +96,7 @@ export default function Home() {
             <ArticleBylineMeta
               author={featured.author}
               date={featured.date}
-              className="text-[11px] tracking-[0.12em]"
+              className="mt-3 text-[11px] tracking-[0.12em]"
             />
           </div>
 
@@ -110,7 +110,7 @@ export default function Home() {
 
         <DividerLabel label="Latest News" />
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(400px,28%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,30%)] gap-8 xl:gap-12 items-stretch">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(400px,28%)] 2xl:grid-cols-[minmax(0,1fr)_minmax(460px,30%)] gap-8 xl:gap-12 items-start">
           <section className="min-w-0 divide-y divide-border border-t border-border">
             {latestStrip.map((article: Article) => (
               <ArticleListRow

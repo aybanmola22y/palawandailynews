@@ -63,7 +63,7 @@ export const HtmlBodyEditor = forwardRef<HtmlBodyEditorHandle, HtmlBodyEditorPro
     }
 
     return (
-      <div className="relative flex-1 min-h-[420px] border border-border bg-white dark:bg-[#0F0F0E] focus-within:border-foreground transition-colors">
+      <div className="relative min-h-[420px] border border-border bg-white dark:bg-[#0F0F0E] focus-within:border-foreground transition-colors">
         {isEmpty && (
           <p className="pointer-events-none absolute left-5 top-4 text-[16px] text-muted-foreground/30">
             {placeholder}
@@ -76,7 +76,7 @@ export const HtmlBodyEditor = forwardRef<HtmlBodyEditorHandle, HtmlBodyEditorPro
           role="textbox"
           aria-multiline
           onInput={handleInput}
-          className="html-body-editor min-h-[420px] max-h-[calc(100vh-320px)] overflow-y-auto px-5 py-4 text-[16px] leading-[1.85] text-foreground outline-none"
+          className="html-body-editor min-h-[420px] px-5 py-4 text-[16px] leading-[1.85] text-foreground outline-none"
         />
       </div>
     );

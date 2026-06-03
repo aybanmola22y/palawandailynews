@@ -10,6 +10,10 @@ import {
   useSupabaseAdminAuth,
 } from "@/lib/admin-auth";
 import {
+  adminNeedsMfaChallenge,
+  startAdminMfaChallenge,
+} from "@/lib/admin-mfa";
+import {
   createSupabaseRouteHandlerClient,
   mergeSupabaseCookies,
 } from "@/lib/supabase/route-handler";
@@ -65,6 +69,28 @@ export async function POST(request: NextRequest) {
         },
         { status: 503 },
       );
+    }
+
+    const needsMfa = await adminNeedsMfaChallenge(supabase);
+    if (needsMfa) {
+      const challenge = await startAdminMfaChallenge(supabase);
+      if (!challenge) {
+        return NextResponse.json(
+          {
+            error:
+              "Two-factor authentication is enabled but could not be started. Try again or contact support.",
+          },
+          { status: 503 },
+        );
+      }
+
+      const jsonResponse = NextResponse.json({
+        mfaRequired: true,
+        factorId: challenge.factorId,
+        challengeId: challenge.challengeId,
+      });
+      mergeSupabaseCookies(cookieResponse, jsonResponse);
+      return jsonResponse;
     }
 
     const jsonResponse = NextResponse.json({ user: profile });

@@ -8,6 +8,7 @@ import {
   isAuthorizedAdminUser,
   verifySessionToken,
 } from "@/lib/admin-auth";
+import { adminNeedsMfaChallenge } from "@/lib/admin-mfa";
 
 function legacyCookieSession(request: NextRequest) {
   const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
@@ -69,7 +70,15 @@ export async function updateAdminSession(request: NextRequest) {
 
   if (isLoginPage) {
     if (user) {
-      return NextResponse.redirect(new URL("/admin", request.url));
+      const needsMfa = await adminNeedsMfaChallenge(supabase);
+      if (!needsMfa) {
+        return NextResponse.redirect(new URL("/admin", request.url));
+      }
+      const loginUrl = new URL("/admin/login", request.url);
+      loginUrl.searchParams.set("step", "mfa");
+      if (request.nextUrl.searchParams.get("step") !== "mfa") {
+        return NextResponse.redirect(loginUrl);
+      }
     }
     return supabaseResponse;
   }
@@ -91,6 +100,16 @@ export async function updateAdminSession(request: NextRequest) {
     await supabase.auth.signOut();
     const loginUrl = new URL("/admin/login", request.url);
     loginUrl.searchParams.set("error", "unauthorized");
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const needsMfa = await adminNeedsMfaChallenge(supabase);
+  if (needsMfa) {
+    const loginUrl = new URL("/admin/login", request.url);
+    loginUrl.searchParams.set("step", "mfa");
+    if (pathname !== "/admin/login") {
+      loginUrl.searchParams.set("next", pathname);
+    }
     return NextResponse.redirect(loginUrl);
   }
 

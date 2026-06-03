@@ -407,9 +407,9 @@ export default function ArticleEditor() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh)] -m-8 overflow-hidden">
+    <div className="flex flex-col -m-8">
       {/* Top bar */}
-      <div className="flex items-center justify-between px-8 py-4 border-b border-border bg-white dark:bg-[#1A1A18] shrink-0">
+      <div className="sticky top-0 z-20 flex items-center justify-between px-8 py-4 border-b border-border bg-white dark:bg-[#1A1A18] shrink-0">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/admin/articles")}
@@ -468,14 +468,8 @@ export default function ArticleEditor() {
         </div>
       )}
 
-      {saving && (
-        <div className="px-8 py-2 bg-muted text-muted-foreground text-sm shrink-0">
-          Uploading images to Hostinger, then saving article…
-        </div>
-      )}
-
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-6">
+      <div className="flex">
+        <div className="flex-1 px-8 py-6 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <label className="text-[11px] font-bold uppercase tracking-[0.15em] text-muted-foreground">
               Article Title
@@ -505,7 +499,7 @@ export default function ArticleEditor() {
             />
           </div>
 
-          <div className="flex flex-col gap-2 flex-1">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1 bg-[#F0F0EE] dark:bg-[#1A1A18] p-1 border border-border">
                 <button
@@ -640,7 +634,7 @@ export default function ArticleEditor() {
                   </p>
                 </div>
                 {editorLoading ? (
-                  <div className="flex flex-1 min-h-[420px] items-center justify-center border border-border bg-white dark:bg-[#0F0F0E] text-[14px] text-muted-foreground">
+                  <div className="flex min-h-[420px] items-center justify-center border border-border bg-white dark:bg-[#0F0F0E] text-[14px] text-muted-foreground">
                     Loading article…
                   </div>
                 ) : (
@@ -661,7 +655,7 @@ export default function ArticleEditor() {
             )}
 
             {editorMode === "preview" && (
-              <div className="border border-border bg-background min-h-[420px] overflow-y-auto">
+              <div className="border border-border bg-background min-h-[420px]">
                 <div className="max-w-[720px] mx-auto px-8 py-10">
                   <ArticleDetailHeader
                     category={form.category || undefined}
@@ -694,7 +688,7 @@ export default function ArticleEditor() {
           </div>
         </div>
 
-        <aside className="w-[300px] shrink-0 self-start border-l border-border bg-[#FAFAF8] dark:bg-[#111111] px-6 py-6 flex flex-col gap-6">
+        <aside className="w-[300px] shrink-0 sticky top-[73px] self-start border-l border-border bg-[#FAFAF8] dark:bg-[#111111] px-6 py-6 flex flex-col gap-6">
           <section>
             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">
               Publish Settings

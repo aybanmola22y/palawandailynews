@@ -9,6 +9,7 @@ import {
   Users,
   IdCard,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { useAdminAuth } from "@/store/admin-auth-context";
 
@@ -29,6 +30,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     { label: "Advertisements", path: "/admin/ads", icon: Megaphone },
     { label: "Admin Users", path: "/admin/users", icon: Users },
     { label: "Staff", path: "/admin/staff", icon: IdCard },
+    { label: "Security", path: "/admin/security", icon: ShieldCheck },
   ];
 
   return (
