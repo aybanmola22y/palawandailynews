@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
-import { getVerifiedTotpFactor } from "@/lib/admin-mfa";
+import {
+  clearUnverifiedTotpFactors,
+  getAdminMfaTotpIssuer,
+  getVerifiedTotpFactor,
+} from "@/lib/admin-mfa";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
 
 export async function POST() {
-  const auth = await requireAdminRouteAuth();
+  const auth = await requireAdminRouteAuth({ allowBeforeMfaEnrolled: true });
   if (auth instanceof NextResponse) return auth;
 
   const supabase = await createServerSupabaseClient();
@@ -23,8 +27,11 @@ export async function POST() {
     );
   }
 
+  await clearUnverifiedTotpFactors(supabase);
+
   const { data, error } = await supabase.auth.mfa.enroll({
     factorType: "totp",
+    issuer: getAdminMfaTotpIssuer(),
     friendlyName: "Palawan Daily News Admin",
   });
 

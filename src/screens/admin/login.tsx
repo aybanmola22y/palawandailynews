@@ -165,6 +165,7 @@ export default function AdminLogin() {
 
       const data = (await res.json()) as {
         error?: string;
+        enrollmentRequired?: boolean;
         mfaRequired?: boolean;
         factorId?: string;
         challengeId?: string;
@@ -173,6 +174,12 @@ export default function AdminLogin() {
       if (!res.ok) {
         form.clearErrors();
         setError(data.error ?? "Unable to sign in. Please try again.");
+        return;
+      }
+
+      if (data.enrollmentRequired) {
+        router.replace("/admin/security?required=1");
+        router.refresh();
         return;
       }
 

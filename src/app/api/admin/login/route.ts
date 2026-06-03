@@ -10,6 +10,7 @@ import {
   useSupabaseAdminAuth,
 } from "@/lib/admin-auth";
 import {
+  adminMustEnrollMfa,
   adminNeedsMfaChallenge,
   startAdminMfaChallenge,
 } from "@/lib/admin-mfa";
@@ -69,6 +70,12 @@ export async function POST(request: NextRequest) {
         },
         { status: 503 },
       );
+    }
+
+    if (await adminMustEnrollMfa(supabase)) {
+      const jsonResponse = NextResponse.json({ enrollmentRequired: true });
+      mergeSupabaseCookies(cookieResponse, jsonResponse);
+      return jsonResponse;
     }
 
     const needsMfa = await adminNeedsMfaChallenge(supabase);

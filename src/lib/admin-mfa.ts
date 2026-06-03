@@ -8,12 +8,53 @@ export type AdminMfaChallenge = {
   challengeId: string;
 };
 
+/** Label shown in authenticator apps (QR issuer). Not tied to Supabase Site URL. */
+export function getAdminMfaTotpIssuer(): string {
+  const custom = process.env.ADMIN_MFA_TOTP_ISSUER?.trim();
+  if (custom) return custom;
+  return "Palawan Daily News";
+}
+
 export function getVerifiedTotpFactor(
   factors: Awaited<
     ReturnType<MfaClient["auth"]["mfa"]["listFactors"]>
   >["data"],
 ) {
   return factors?.totp?.find((f) => f.status === "verified") ?? null;
+}
+
+/** Drop abandoned setup attempts so enroll can be retried. */
+export async function clearUnverifiedTotpFactors(
+  supabase: MfaClient,
+): Promise<void> {
+  const { data: factors } = await supabase.auth.mfa.listFactors();
+  const pending =
+    factors?.totp?.filter((f) => f.status !== "verified") ?? [];
+  for (const factor of pending) {
+    await supabase.auth.mfa.unenroll({ factorId: factor.id });
+  }
+}
+
+export async function adminHasVerifiedTotpEnrolled(
+  supabase: MfaClient,
+): Promise<boolean> {
+  const { data: factors, error } = await supabase.auth.mfa.listFactors();
+  if (error) return false;
+  return Boolean(getVerifiedTotpFactor(factors));
+}
+
+/** No authenticator enrolled yet — must visit Security before using the CMS. */
+export async function adminMustEnrollMfa(supabase: MfaClient): Promise<boolean> {
+  return !(await adminHasVerifiedTotpEnrolled(supabase));
+}
+
+/** Full admin access: enrolled + verified code this session (AAL2). */
+export async function adminMeetsMfaPolicy(supabase: MfaClient): Promise<boolean> {
+  if (!(await adminHasVerifiedTotpEnrolled(supabase))) return false;
+  const { data: aal, error } =
+    await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error || !aal) return false;
+  return aal.currentLevel === "aal2";
 }
 
 /** True when the user has TOTP enrolled and must verify a code to reach AAL2. */

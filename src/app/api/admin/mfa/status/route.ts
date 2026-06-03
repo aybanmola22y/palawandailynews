@@ -4,7 +4,7 @@ import { getVerifiedTotpFactor } from "@/lib/admin-mfa";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
 
 export async function GET() {
-  const auth = await requireAdminRouteAuth();
+  const auth = await requireAdminRouteAuth({ allowBeforeMfaEnrolled: true });
   if (auth instanceof NextResponse) return auth;
 
   const supabase = await createServerSupabaseClient();

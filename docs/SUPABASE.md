@@ -76,9 +76,20 @@ If your project still has a `media` table from an older schema, run:
 
 File: `supabase/migrations/007_drop_media.sql`
 
-## 7. Auth (next step)
+## 7. Auth & admin MFA
 
 Migrations include `admin_users.auth_user_id` → `auth.users` for Supabase Auth login. RLS already allows `authenticated` roles to manage CMS data.
+
+### URL configuration (Supabase Dashboard → Authentication → URL Configuration)
+
+| Setting | Example | Notes |
+|---------|---------|--------|
+| **Site URL** | `https://palawandailynews.com` | Must be a full URL (`https://…`). No wildcards. Used for auth redirects and emails—not for the authenticator label in our app. |
+| **Redirect URLs** | `https://palawandailynews.com/**`, `http://localhost:3000/**` | Add every host you sign in from. |
+
+If Site URL is invalid (e.g. missing `https://`), Supabase can error on some auth flows. Admin MFA enrollment in this app passes an explicit issuer (`Palawan Daily News`) so setup still works.
+
+Optional: `ADMIN_MFA_TOTP_ISSUER` in Vercel/env to customize the name shown in Microsoft Authenticator.
 
 ## Architecture
 

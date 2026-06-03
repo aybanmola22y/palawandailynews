@@ -7,6 +7,7 @@ import {
   useSupabaseAdminAuth,
   verifySessionToken,
 } from "@/lib/admin-auth";
+import { adminMeetsMfaPolicy, adminMustEnrollMfa } from "@/lib/admin-mfa";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -15,10 +16,15 @@ export type AdminRouteAuth = {
   service: NonNullable<ReturnType<typeof getSupabaseServiceClient>>;
 };
 
+export type RequireAdminRouteAuthOptions = {
+  /** MFA setup/status routes — password sign-in only, enrollment not required yet. */
+  allowBeforeMfaEnrolled?: boolean;
+};
+
 /** Require a signed-in CMS user and service-role Supabase client for admin APIs. */
-export async function requireAdminRouteAuth(): Promise<
-  AdminRouteAuth | NextResponse
-> {
+export async function requireAdminRouteAuth(
+  options: RequireAdminRouteAuthOptions = {},
+): Promise<AdminRouteAuth | NextResponse> {
   const service = getSupabaseServiceClient();
   if (!service) {
     return NextResponse.json(
@@ -38,6 +44,28 @@ export async function requireAdminRouteAuth(): Promise<
         if (authUser) {
           const profile = await fetchAdminProfileForAuthUser(supabase, authUser);
           if (profile) {
+            if (!options.allowBeforeMfaEnrolled) {
+              if (await adminMustEnrollMfa(supabase)) {
+                return NextResponse.json(
+                  {
+                    error:
+                      "Authenticator app setup is required. Open Admin → Security to continue.",
+                    code: "MFA_ENROLLMENT_REQUIRED",
+                  },
+                  { status: 403 },
+                );
+              }
+              if (!(await adminMeetsMfaPolicy(supabase))) {
+                return NextResponse.json(
+                  {
+                    error:
+                      "Enter your authenticator code to sign in again before using this action.",
+                    code: "MFA_CHALLENGE_REQUIRED",
+                  },
+                  { status: 403 },
+                );
+              }
+            }
             return { user: profile, service };
           }
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });

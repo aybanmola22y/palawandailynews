@@ -8,7 +8,15 @@ import {
   isAuthorizedAdminUser,
   verifySessionToken,
 } from "@/lib/admin-auth";
-import { adminNeedsMfaChallenge } from "@/lib/admin-mfa";
+import { adminMustEnrollMfa, adminNeedsMfaChallenge } from "@/lib/admin-mfa";
+
+const ADMIN_SECURITY_PATH = "/admin/security";
+
+function securitySetupUrl(request: NextRequest, required = false) {
+  const url = new URL(ADMIN_SECURITY_PATH, request.url);
+  if (required) url.searchParams.set("required", "1");
+  return url;
+}
 
 function legacyCookieSession(request: NextRequest) {
   const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
@@ -70,6 +78,9 @@ export async function updateAdminSession(request: NextRequest) {
 
   if (isLoginPage) {
     if (user) {
+      if (await adminMustEnrollMfa(supabase)) {
+        return NextResponse.redirect(securitySetupUrl(request, true));
+      }
       const needsMfa = await adminNeedsMfaChallenge(supabase);
       if (!needsMfa) {
         return NextResponse.redirect(new URL("/admin", request.url));
@@ -101,6 +112,13 @@ export async function updateAdminSession(request: NextRequest) {
     const loginUrl = new URL("/admin/login", request.url);
     loginUrl.searchParams.set("error", "unauthorized");
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (await adminMustEnrollMfa(supabase)) {
+    if (pathname !== ADMIN_SECURITY_PATH) {
+      return NextResponse.redirect(securitySetupUrl(request, true));
+    }
+    return supabaseResponse;
   }
 
   const needsMfa = await adminNeedsMfaChallenge(supabase);

@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   InputOTP,
@@ -17,6 +19,11 @@ type MfaStatus = {
 };
 
 export default function AdminSecurity() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const setupRequired = searchParams.get("required") === "1";
+  const autoEnrollStarted = useRef(false);
+
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
@@ -43,6 +50,21 @@ export default function AdminSecurity() {
   useEffect(() => {
     void loadStatus();
   }, [loadStatus]);
+
+  useEffect(() => {
+    if (
+      !setupRequired ||
+      loading ||
+      enrolling ||
+      status?.enrolled ||
+      !status?.canEnroll ||
+      autoEnrollStarted.current
+    ) {
+      return;
+    }
+    autoEnrollStarted.current = true;
+    void startEnroll();
+  }, [setupRequired, loading, enrolling, status?.enrolled, status?.canEnroll]);
 
   async function startEnroll() {
     setEnrolling(true);
@@ -87,12 +109,19 @@ export default function AdminSecurity() {
       if (!res.ok) throw new Error(data.error ?? "Invalid code");
       adminToast.success(
         "Authenticator enabled",
-        "You will need a code from your app the next time you sign in.",
+        setupRequired
+          ? "You can use the admin dashboard now."
+          : "You will need a code from your app the next time you sign in.",
       );
       setEnrolling(false);
       setQrCode(null);
       setSecret(null);
       setCode("");
+      if (setupRequired) {
+        router.replace("/admin");
+        router.refresh();
+        return;
+      }
       await loadStatus();
     } catch (err) {
       adminToast.error(
@@ -114,11 +143,22 @@ export default function AdminSecurity() {
               Security
             </h1>
             <p className="text-[14px] text-muted-foreground mt-1">
-              Add an authenticator app for a second step when signing in to the admin.
+              {setupRequired
+                ? "An authenticator app is required for every admin account before using the CMS."
+                : "Add an authenticator app for a second step when signing in to the admin."}
             </p>
           </div>
         </div>
       </header>
+
+      {setupRequired && !status?.enrolled ? (
+        <Alert>
+          <AlertDescription>
+            Set up Google Authenticator, Microsoft Authenticator, Authy, or another
+            TOTP app. You cannot open other admin pages until this is complete.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {loading ? (
         <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -131,8 +171,8 @@ export default function AdminSecurity() {
             Authenticator active
           </p>
           <p className="mt-2 text-[14px] text-muted-foreground leading-relaxed">
-            Sign-in requires your password and a 6-digit code from your authenticator
-            app
+            Sign-in always requires your password and a 6-digit code from your
+            authenticator app
             {status.friendlyName ? ` (${status.friendlyName})` : ""}. To change devices,
             remove the factor in Supabase Dashboard → Authentication → Users → your
             user → MFA, then set up again here.
@@ -185,25 +225,28 @@ export default function AdminSecurity() {
                 "Enable authenticator"
               )}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setEnrolling(false);
-                setQrCode(null);
-                setSecret(null);
-                setCode("");
-              }}
-            >
-              Cancel
-            </Button>
+            {!setupRequired ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEnrolling(false);
+                  setQrCode(null);
+                  setSecret(null);
+                  setCode("");
+                }}
+              >
+                Cancel
+              </Button>
+            ) : null}
           </div>
         </div>
       ) : (
         <div className="border border-border bg-card p-6">
           <p className="text-[14px] text-muted-foreground leading-relaxed">
-            Protect your admin account with time-based codes from an authenticator app.
-            After setup, each sign-in will ask for your password and a 6-digit code.
+            {setupRequired
+              ? "Your organization requires an authenticator app for all admin users. Complete setup below to continue."
+              : "Protect your admin account with time-based codes from an authenticator app. After setup, each sign-in will ask for your password and a 6-digit code."}
           </p>
           <Button
             type="button"

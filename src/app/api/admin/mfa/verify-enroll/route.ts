@@ -4,7 +4,7 @@ import { verifyAdminMfaCode } from "@/lib/admin-mfa";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdminRouteAuth();
+  const auth = await requireAdminRouteAuth({ allowBeforeMfaEnrolled: true });
   if (auth instanceof NextResponse) return auth;
 
   let body: { code?: string; factorId?: string; challengeId?: string };
