@@ -9,6 +9,7 @@ import {
   verifySessionToken,
 } from "@/lib/admin-auth";
 import { adminMustEnrollMfa, adminNeedsMfaChallenge } from "@/lib/admin-mfa";
+import { sanitizeRedirectPath } from "@/lib/security/safe-url";
 
 const ADMIN_SECURITY_PATH = "/admin/security";
 
@@ -37,8 +38,9 @@ export async function updateAdminSession(request: NextRequest) {
     }
     if (!session) {
       const loginUrl = new URL("/admin/login", request.url);
-      if (pathname !== "/admin") {
-        loginUrl.searchParams.set("next", pathname);
+      const safeNext = sanitizeRedirectPath(pathname, "/admin", { adminOnly: true });
+      if (safeNext !== "/admin") {
+        loginUrl.searchParams.set("next", safeNext);
       }
       return NextResponse.redirect(loginUrl);
     }
@@ -96,8 +98,9 @@ export async function updateAdminSession(request: NextRequest) {
 
   if (!user) {
     const loginUrl = new URL("/admin/login", request.url);
-    if (pathname !== "/admin") {
-      loginUrl.searchParams.set("next", pathname);
+    const safeNext = sanitizeRedirectPath(pathname, "/admin", { adminOnly: true });
+    if (safeNext !== "/admin") {
+      loginUrl.searchParams.set("next", safeNext);
     }
     return NextResponse.redirect(loginUrl);
   }
@@ -125,8 +128,9 @@ export async function updateAdminSession(request: NextRequest) {
   if (needsMfa) {
     const loginUrl = new URL("/admin/login", request.url);
     loginUrl.searchParams.set("step", "mfa");
-    if (pathname !== "/admin/login") {
-      loginUrl.searchParams.set("next", pathname);
+    const safeNext = sanitizeRedirectPath(pathname, "/admin", { adminOnly: true });
+    if (safeNext !== "/admin" && safeNext !== "/admin/login") {
+      loginUrl.searchParams.set("next", safeNext);
     }
     return NextResponse.redirect(loginUrl);
   }

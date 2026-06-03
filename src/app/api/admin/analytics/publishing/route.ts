@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
+import { clampInt } from "@/lib/security/safe-url";
 
 function ymd(iso: string) {
   const d = new Date(iso);
@@ -18,10 +19,7 @@ export async function GET(request: NextRequest) {
   if (auth instanceof NextResponse) return auth;
 
   const { searchParams } = new URL(request.url);
-  const days = Math.min(
-    120,
-    Math.max(7, Number(searchParams.get("days") ?? "30") || 30),
-  );
+  const days = clampInt(searchParams.get("days"), 7, 120, 30);
 
   const end = new Date();
   end.setUTCHours(23, 59, 59, 999);

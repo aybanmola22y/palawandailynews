@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/editorial/PageHeader";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
+import { sanitizeSearchQuery } from "@/lib/security/safe-url";
 import { paginateArticles, searchArticles } from "@/lib/site-articles";
 import type { Article } from "@/store/articles-context";
 
@@ -17,7 +18,7 @@ export default function Search() {
   const published = usePublishedArticles();
   const router = useRouter();
   const sp = useSearchParams();
-  const initialQ = (sp.get("q") ?? "").trim();
+  const initialQ = sanitizeSearchQuery(sp.get("q") ?? "");
 
   /** Immediate — keeps typing responsive. */
   const [input, setInput] = useState(initialQ);
@@ -31,7 +32,7 @@ export default function Search() {
   }, []);
 
   useEffect(() => {
-    const next = input.trim();
+    const next = sanitizeSearchQuery(input);
     const timer = window.setTimeout(() => {
       setSearchQuery(next);
       setPage(1);

@@ -31,6 +31,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { sanitizeRedirectPath } from "@/lib/security/safe-url";
 
 const loginSchema = z.object({
   email: z.string().email("Enter a valid email address"),
@@ -47,7 +48,11 @@ type MfaPending = {
 export default function AdminLogin() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextPath = searchParams.get("next") || "/admin";
+  const nextPath = sanitizeRedirectPath(
+    searchParams.get("next"),
+    "/admin",
+    { adminOnly: true },
+  );
   const authError = searchParams.get("error");
   const stepParam = searchParams.get("step");
 
@@ -193,7 +198,7 @@ export default function AdminLogin() {
         return;
       }
 
-      router.replace(nextPath.startsWith("/admin") ? nextPath : "/admin");
+      router.replace(nextPath);
       router.refresh();
     } catch {
       setError("Network error. Check your connection and try again.");
@@ -224,7 +229,7 @@ export default function AdminLogin() {
         return;
       }
 
-      router.replace(nextPath.startsWith("/admin") ? nextPath : "/admin");
+      router.replace(nextPath);
       router.refresh();
     } catch {
       setError("Network error. Check your connection and try again.");

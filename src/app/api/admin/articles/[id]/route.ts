@@ -5,6 +5,7 @@ import type { ArticleUpdate } from "@/types/article";
 import type { ArticleUpdateRow } from "@/lib/supabase/database.types";
 import { resolveImageUrl } from "@/lib/articles/map-article-row";
 import { revalidatePublicArticleSummaries } from "@/lib/articles/revalidate-public-summaries";
+import { parseArticleRouteId } from "@/lib/security/route-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -31,7 +32,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseArticleRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
+
   const { data, error } = await auth.service
     .from("articles")
     .select("*")
@@ -53,7 +58,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseArticleRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
 
   let changes: ArticleUpdate;
   try {
@@ -102,7 +110,11 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseArticleRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
+
   const { error } = await auth.service.from("articles").delete().eq("id", id);
 
   if (error) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adChangesToRow, rowToAd } from "@/lib/ads/map-ad-row";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { Ad } from "@/store/ads-context";
+import { parseArticleRouteId } from "@/lib/security/route-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -9,7 +10,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseArticleRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
 
   let changes: Partial<Ad>;
   try {

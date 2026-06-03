@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { StaffProfileRow } from "@/lib/supabase/database.types";
 import { authorInitials, authorSlug } from "@/lib/author-profile";
+import { parseUuidRouteId } from "@/lib/security/route-params";
 
 type StaffProfilePatchInput = {
   name: string;
@@ -30,7 +31,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseUuidRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
 
   let body: StaffProfilePatchInput;
   try {
@@ -96,7 +100,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseUuidRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
 
   const { error } = await auth.service.from("staff_profiles").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

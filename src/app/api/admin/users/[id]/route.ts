@@ -3,6 +3,7 @@ import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { AdminAuthClient } from "@/lib/admin-auth";
 import { mapAdminUserRowToClient } from "@/lib/admin-users";
 import type { UserRole } from "@/store/users-context";
+import { parseUuidRouteId } from "@/lib/security/route-params";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -18,7 +19,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseUuidRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
 
   let body: { name?: string; email?: string; role?: UserRole };
   try {
@@ -93,7 +97,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const parsed = parseUuidRouteId(rawId);
+  if (!parsed.ok) return parsed.response;
+  const { id } = parsed;
   const { service } = auth;
 
   const { data: existing, error: loadError } = await service
