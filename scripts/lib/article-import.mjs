@@ -122,6 +122,7 @@ export function mapArticleRow(row, index) {
     is_breaking: parseBool(pickField(row, ["is_breaking", "isbreaking", "breaking"])),
     status,
     legacy_wp_id,
+    cms_origin: false,
     updated_at: new Date().toISOString(),
   };
 }

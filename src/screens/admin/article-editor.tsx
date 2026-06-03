@@ -19,14 +19,31 @@ import {
   type HtmlBodyEditorHandle,
 } from "@/components/admin/HtmlBodyEditor";
 import { ArticleDetailHeader } from "@/components/editorial/ArticleDetailHeader";
+import { ArticleTags } from "@/components/editorial/ArticleTags";
 import { formatArticleDate } from "@/lib/site-articles";
+import { getArticleAuthorOptions } from "@/lib/article-authors";
 import {
   getArticleCategoryOptions,
   resolveCategoryForSelect,
 } from "@/lib/article-categories";
+import { useStaff } from "@/store/staff-context";
+import { adminToast } from "@/lib/admin-toast";
 import { validateArticleForPersist } from "@/lib/articles/article-persist";
+import {
+  createPendingBlobUrl,
+  publishArticleImages,
+  revokePendingBlobUrl,
+} from "@/lib/admin/publish-article-images";
 import Link from "next/link";
 import { ArrowLeft, Save, Send, Upload, Link as LinkIcon, X, Image, Eye, Pencil } from "lucide-react";
+
+function containsEmbeddedDataImage(value: string): boolean {
+  return /data:image\//i.test(value);
+}
+
+function containsBlobImage(value: string): boolean {
+  return /blob:/i.test(value);
+}
 
 const STATUSES: ArticleStatus[] = ["Published", "Draft", "Review"];
 
@@ -62,6 +79,7 @@ export default function ArticleEditor() {
     ensureArticleContent,
     refreshArticles,
   } = useArticles();
+  const { staff } = useStaff();
   const params = useParams<{ id?: string }>();
   const router = useRouter();
 
@@ -83,7 +101,10 @@ export default function ArticleEditor() {
 
   const [imageTab, setImageTab] = useState<"upload" | "url">("upload");
   const [dragging, setDragging] = useState(false);
+  const [pendingHeroFile, setPendingHeroFile] = useState<File | null>(null);
+  const [heroPreviewUrl, setHeroPreviewUrl] = useState("");
   const heroFileInputRef = useRef<HTMLInputElement>(null);
+  const pendingFilesRef = useRef<Map<string, File>>(new Map());
 
   const [showImageInsert, setShowImageInsert] = useState(false);
   const [inlineImageTab, setInlineImageTab] = useState<"upload" | "url">("upload");
@@ -102,6 +123,11 @@ export default function ArticleEditor() {
         form.category || existing?.category,
       ),
     [articles, form.category, existing?.category],
+  );
+
+  const authorOptions = useMemo(
+    () => getArticleAuthorOptions(staff, form.author || existing?.author),
+    [staff, form.author, existing?.author],
   );
 
   useEffect(() => {
@@ -180,6 +206,19 @@ export default function ArticleEditor() {
   }, [existing, isEdit, existing?.content, articles]);
 
   useEffect(() => {
+    return () => {
+      revokePendingBlobUrl(heroPreviewUrl);
+      for (const url of pendingFilesRef.current.keys()) {
+        revokePendingBlobUrl(url);
+      }
+      pendingFilesRef.current.clear();
+    };
+  }, [heroPreviewUrl]);
+
+  const heroDisplaySrc =
+    heroPreviewUrl || (form.image.startsWith("blob:") ? "" : form.image);
+
+  useEffect(() => {
     if (!showImageInsert) return;
     function handleClick(e: MouseEvent) {
       if (imageInsertRef.current && !imageInsertRef.current.contains(e.target as Node)) {
@@ -192,14 +231,23 @@ export default function ArticleEditor() {
 
   function handleHeroFile(file: File) {
     if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => setForm((prev) => ({ ...prev, image: e.target?.result as string }));
-    reader.readAsDataURL(file);
+    revokePendingBlobUrl(heroPreviewUrl);
+    setPendingHeroFile(file);
+    setHeroPreviewUrl(createPendingBlobUrl(file));
+    setForm((prev) => ({ ...prev, image: "" }));
+  }
+
+  function clearHeroImage() {
+    revokePendingBlobUrl(heroPreviewUrl);
+    setPendingHeroFile(null);
+    setHeroPreviewUrl("");
+    setForm((prev) => ({ ...prev, image: "" }));
   }
 
   function onHeroFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) handleHeroFile(file);
+    e.target.value = "";
   }
 
   function onHeroDrop(e: DragEvent<HTMLDivElement>) {
@@ -211,14 +259,15 @@ export default function ArticleEditor() {
 
   function handleInlineFile(file: File) {
     if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = (e) => setInlineImageUrl(e.target?.result as string);
-    reader.readAsDataURL(file);
+    const blobUrl = createPendingBlobUrl(file);
+    pendingFilesRef.current.set(blobUrl, file);
+    setInlineImageUrl(blobUrl);
   }
 
   function onInlineFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (file) handleInlineFile(file);
+    e.target.value = "";
   }
 
   function onInlineDrop(e: DragEvent<HTMLDivElement>) {
@@ -246,42 +295,92 @@ export default function ArticleEditor() {
   async function handleSave(status: ArticleStatus) {
     setSaveError(null);
 
-    const updated = {
+    const draftContent = bodyForPreviewAndSave();
+
+    const validationError = validateArticleForPersist({
       ...form,
       status,
-      content: bodyForPreviewAndSave(),
+      content: draftContent,
       excerpt: form.excerpt.trim(),
-    };
-
-    const validationError = validateArticleForPersist(updated);
+    });
     if (validationError) {
       setSaveError(validationError);
+      adminToast.error("Cannot save article", validationError);
       return;
     }
 
     if (cmsWritable === false) {
-      setSaveError(
-        "Cannot save: add SUPABASE_SERVICE_ROLE_KEY to .env and restart npm run dev.",
-      );
+      const message =
+        "Cannot save: add SUPABASE_SERVICE_ROLE_KEY to .env and restart npm run dev.";
+      setSaveError(message);
+      adminToast.error("CMS not configured", message);
       return;
     }
 
     setSaving(true);
     try {
+      const { heroImage, contentHtml } = await publishArticleImages({
+        heroFile: pendingHeroFile,
+        heroUrl: form.image,
+        contentHtml: draftContent,
+        pendingFiles: pendingFilesRef.current,
+      });
+
+      if (
+        heroImage.startsWith("data:") ||
+        containsEmbeddedDataImage(contentHtml) ||
+        containsBlobImage(contentHtml)
+      ) {
+        throw new Error("Images must be uploaded files or public URLs, not embedded data.");
+      }
+
+      const updated = {
+        ...form,
+        status,
+        image: heroImage,
+        content: contentHtml,
+        excerpt: form.excerpt.trim(),
+      };
+
+      const headline = form.title.trim() || "Untitled";
+
       if (isEdit && articleId) {
         await updateArticle(articleId, updated);
+        adminToast.success(
+          status === "Published"
+            ? "Article published"
+            : status === "Review"
+              ? "Sent for review"
+              : "Draft saved",
+          `"${headline}" was updated.`,
+        );
       } else {
         const saved = await addArticle(updated);
         if (!saved?.id) {
           throw new Error("Article was not saved to Supabase.");
         }
+        adminToast.success(
+          status === "Published" ? "Article published" : "Article created",
+          `"${headline}" is now in the CMS.`,
+        );
       }
+
+      revokePendingBlobUrl(heroPreviewUrl);
+      setPendingHeroFile(null);
+      setHeroPreviewUrl("");
+      for (const url of pendingFilesRef.current.keys()) {
+        revokePendingBlobUrl(url);
+      }
+      pendingFilesRef.current.clear();
+
       await refreshArticles();
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       router.push("/admin/articles");
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to save article");
+      const message = err instanceof Error ? err.message : "Failed to save article";
+      setSaveError(message);
+      adminToast.error("Could not save article", message);
     } finally {
       setSaving(false);
     }
@@ -371,7 +470,7 @@ export default function ArticleEditor() {
 
       {saving && (
         <div className="px-8 py-2 bg-muted text-muted-foreground text-sm shrink-0">
-          Saving to Supabase…
+          Uploading images to Hostinger, then saving article…
         </div>
       )}
 
@@ -491,7 +590,7 @@ export default function ArticleEditor() {
                         >
                           <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
                           <p className="text-[11px] text-muted-foreground">
-                            Drop image or click to upload
+                            Drop image or click (uploads on Save / Publish)
                           </p>
                           <input
                             ref={inlineFileInputRef}
@@ -574,7 +673,7 @@ export default function ArticleEditor() {
                     author={form.author || undefined}
                     date={form.date ? formatArticleDate(form.date) : undefined}
                     readingTime={form.readingTime || undefined}
-                    image={form.image || undefined}
+                    image={heroDisplaySrc || undefined}
                     imageAlt={form.title}
                     statusLabel={
                       form.status && form.status !== "Published" ? form.status : undefined
@@ -588,6 +687,7 @@ export default function ArticleEditor() {
                       ),
                     )}
                   </div>
+                  <ArticleTags tags={form.tags} static />
                 </div>
               </div>
             )}
@@ -655,11 +755,29 @@ export default function ArticleEditor() {
                 <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
                   Author
                 </label>
-                <input
+                <select
                   value={form.author}
                   onChange={(e) => setForm({ ...form, author: e.target.value })}
                   className="input"
-                />
+                >
+                  <option value="" disabled hidden>
+                    Select author
+                  </option>
+                  {authorOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                {staff.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    No staff profiles yet.{" "}
+                    <Link href="/admin/staff" className="text-primary hover:underline">
+                      Add staff
+                    </Link>{" "}
+                    to choose an author.
+                  </p>
+                ) : null}
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
@@ -679,6 +797,7 @@ export default function ArticleEditor() {
                   placeholder="comma, separated, tags"
                   className="input"
                 />
+                <ArticleTags tags={form.tags} static variant="inline" />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
@@ -708,15 +827,21 @@ export default function ArticleEditor() {
             <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">
               Hero Image
             </h2>
-            {form.image ? (
+            {heroDisplaySrc ? (
               <div className="relative group">
                 <img
-                  src={form.image}
+                  src={heroDisplaySrc}
                   alt="Hero"
                   className="w-full aspect-video object-cover border border-border"
                 />
+                {pendingHeroFile ? (
+                  <p className="mt-2 text-[10px] text-muted-foreground leading-snug">
+                    Draft preview — uploads to Hostinger when you Save or Publish.
+                  </p>
+                ) : null}
                 <button
-                  onClick={() => setForm({ ...form, image: "" })}
+                  type="button"
+                  onClick={clearHeroImage}
                   className="absolute top-2 right-2 p-1.5 bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-4 h-4" />
@@ -741,6 +866,9 @@ export default function ArticleEditor() {
                 <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                   Choose Image
                 </p>
+                <p className="mt-1 text-[10px] text-muted-foreground px-4 text-center">
+                  Uploads to Hostinger on Save / Publish
+                </p>
                 <input
                   ref={heroFileInputRef}
                   type="file"
@@ -750,7 +878,7 @@ export default function ArticleEditor() {
                 />
               </div>
             )}
-            {!form.image && (
+            {!heroDisplaySrc && (
               <div className="mt-3">
                 <div className="flex gap-1 bg-muted p-0.5 mb-2">
                   <button
@@ -778,7 +906,12 @@ export default function ArticleEditor() {
                   <div className="flex gap-2">
                     <input
                       value={form.image.startsWith("http") ? form.image : ""}
-                      onChange={(e) => setForm({ ...form, image: e.target.value })}
+                      onChange={(e) => {
+                        revokePendingBlobUrl(heroPreviewUrl);
+                        setPendingHeroFile(null);
+                        setHeroPreviewUrl("");
+                        setForm({ ...form, image: e.target.value });
+                      }}
                       placeholder="https://..."
                       className="input text-[12px] flex-1"
                     />

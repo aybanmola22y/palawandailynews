@@ -7,6 +7,8 @@ import { useArticles, ArticleStatus } from "@/store/articles-context";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { Search, ExternalLink } from "lucide-react";
 import { formatAdminDateTime } from "@/lib/admin-utils";
+import { adminToast } from "@/lib/admin-toast";
+import { isCmsDraft } from "@/lib/articles/cms-draft";
 import { paginateArticles } from "@/lib/site-articles";
 
 const STATUS_STYLES: Record<ArticleStatus, string> = {
@@ -42,7 +44,7 @@ export default function AdminArticles() {
 
   const stats = useMemo(() => {
     const published = articles.filter((a) => a.status === "Published").length;
-    const drafts = articles.filter((a) => a.status === "Draft").length;
+    const drafts = articles.filter(isCmsDraft).length;
     const review = articles.filter((a) => a.status === "Review").length;
     const breaking = articles.filter((a) => a.isBreaking).length;
     return { published, drafts, review, breaking };
@@ -67,7 +69,11 @@ export default function AdminArticles() {
         a.category.toLowerCase().includes(q) ||
         a.excerpt.toLowerCase().includes(q);
       const matchStatus =
-        statusFilter === "All Statuses" || a.status === statusFilter;
+        statusFilter === "All Statuses"
+          ? true
+          : statusFilter === "Draft"
+            ? isCmsDraft(a)
+            : a.status === statusFilter;
       const matchCategory =
         categoryFilter === "All Categories" || a.category === categoryFilter;
       return matchSearch && matchStatus && matchCategory;
@@ -86,10 +92,21 @@ export default function AdminArticles() {
     if (page > totalPages) setPage(totalPages);
   }, [page, totalPages]);
 
-  function handleDelete(id: string) {
-    // Close confirmation dialog immediately.
+  async function handleDelete(id: string) {
+    const title = articles.find((a) => a.id === id)?.title?.trim();
     setDeleteId(null);
-    void deleteArticle(id);
+    try {
+      await deleteArticle(id);
+      adminToast.success(
+        "Article deleted",
+        title ? `"${title}" was removed.` : "The article was removed.",
+      );
+    } catch (err) {
+      adminToast.error(
+        "Could not delete article",
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
+    }
   }
 
   return (
@@ -211,7 +228,9 @@ export default function AdminArticles() {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
-                      No articles match your filters.
+                      {statusFilter === "Draft"
+                        ? "No CMS drafts yet. Use New Article and Save Draft — imported WordPress drafts are hidden here."
+                        : "No articles match your filters."}
                     </td>
                   </tr>
                 )}

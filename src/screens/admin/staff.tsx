@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useUsers } from "@/store/users-context";
 import { useStaff, type StaffProfile } from "@/store/staff-context";
 import { useArticles } from "@/store/articles-context";
-import { useToast } from "@/hooks/use-toast";
+import { adminToast } from "@/lib/admin-toast";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { Search, ExternalLink } from "lucide-react";
 import { authorProfilePath } from "@/lib/author-profile";
@@ -35,7 +35,6 @@ export default function AdminStaff() {
   const { users } = useUsers();
   const { staff, addStaff, updateStaff, deleteStaff } = useStaff();
   const { articles } = useArticles();
-  const { toast } = useToast();
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -106,11 +105,7 @@ export default function AdminStaff() {
   async function handleSave() {
     if (!form) return;
     if (!form.name.trim()) {
-      toast({
-        title: "Missing name",
-        description: "Name is required for a staff profile.",
-        variant: "destructive",
-      });
+      adminToast.error("Missing name", "Name is required for a staff profile.");
       return;
     }
 
@@ -123,10 +118,10 @@ export default function AdminStaff() {
           bio: form.bio,
           badgeLabel: form.badgeLabel,
         });
-        toast({
-          title: "Staff added",
-          description: `${form.name} was added to Staff (no admin access).`,
-        });
+        adminToast.success(
+          "Staff added",
+          `${form.name} was added to Staff (no admin access).`,
+        );
       } else if (modal === "edit" && editingId) {
         await updateStaff(editingId, {
           name: form.name.trim(),
@@ -135,18 +130,17 @@ export default function AdminStaff() {
           bio: form.bio,
           badgeLabel: form.badgeLabel,
         });
-        toast({
-          title: "Profile updated",
-          description: `${form.name}'s public profile was saved.`,
-        });
+        adminToast.success(
+          "Profile updated",
+          `${form.name}'s public profile was saved.`,
+        );
       }
       close();
     } catch (err) {
-      toast({
-        title: "Could not save staff profile",
-        description: err instanceof Error ? err.message : "Something went wrong.",
-        variant: "destructive",
-      });
+      adminToast.error(
+        "Could not save staff profile",
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
     }
   }
 
@@ -158,16 +152,15 @@ export default function AdminStaff() {
     setDeleteId(null);
     try {
       await deleteStaff(targetId);
-      toast({
-        title: "Staff removed",
-        description: member ? `${member.name} was removed.` : "Staff removed.",
-      });
+      adminToast.success(
+        "Staff removed",
+        member ? `${member.name} was removed.` : "Staff removed.",
+      );
     } catch (err) {
-      toast({
-        title: "Could not remove staff",
-        description: err instanceof Error ? err.message : "Something went wrong.",
-        variant: "destructive",
-      });
+      adminToast.error(
+        "Could not remove staff",
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
     }
   }
 

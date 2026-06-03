@@ -8,20 +8,87 @@ import { getMediaBaseUrl } from "@/lib/supabase/env";
 
 const STATUSES: ArticleStatus[] = ["Published", "Draft", "Review"];
 
+/** Normalize tags from DB array, JSON string, or comma/pipe-separated text (imports). */
+export function normalizeArticleTags(raw: unknown): string[] {
+  if (raw == null) return [];
+
+  if (Array.isArray(raw)) {
+    const tags = raw
+      .map((t) => String(t).trim())
+      .filter(Boolean);
+    return [...new Set(tags)].slice(0, 30);
+  }
+
+  if (typeof raw === "string") {
+    const s = raw.trim();
+    if (!s) return [];
+    if (s.startsWith("[") || s.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(s) as unknown;
+        return normalizeArticleTags(parsed);
+      } catch {
+        /* fall through */
+      }
+    }
+    const tags = s
+      .split(/[|,]/g)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    return [...new Set(tags)].slice(0, 30);
+  }
+
+  return [];
+}
+
 function normalizeStatus(value: string): ArticleStatus {
   return STATUSES.includes(value as ArticleStatus)
     ? (value as ArticleStatus)
     : "Published";
 }
 
+const HOSTINGER_SITE_HOST = /^(https?:\/\/(?:www\.)?palawandailynews\.com)\//i;
+
 /** Resolve image URL — store full Hostinger URLs in Supabase; optionally prefix relative paths. */
 export function resolveImageUrl(image: string): string {
   const trimmed = image.trim();
   if (!trimmed) return "";
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    const host = trimmed.match(
+      /^(https?:\/\/(?:www\.)?palawandailynews\.com)\//i,
+    );
+    if (host) {
+      const [, base] = host;
+      // Wrong nested folder from an earlier bug: /public_html/pdn_new_website_uploads → /pdn_new_website_uploads
+      if (/\/public_html\/pdn_new_website_uploads\//i.test(trimmed)) {
+        return trimmed.replace(
+          `${base}/public_html/pdn_new_website_uploads/`,
+          `${base}/pdn_new_website_uploads/`,
+        );
+      }
+      if (/\/public_html\/uploads\//i.test(trimmed)) {
+        return trimmed.replace(
+          `${base}/public_html/uploads/`,
+          `${base}/pdn_new_website_uploads/`,
+        );
+      }
+    }
+    return trimmed;
+  }
+
   const base = getMediaBaseUrl();
   if (!base) return trimmed;
-  return `${base}/${trimmed.replace(/^\//, "")}`;
+  const normalized = trimmed.replace(/^\//, "");
+  if (normalized.startsWith("public_html/pdn_new_website_uploads/")) {
+    return `${base.replace(/\/$/, "")}/${normalized.replace(/^public_html\//, "")}`;
+  }
+  if (
+    normalized.startsWith("pdn_new_website_uploads/") &&
+    HOSTINGER_SITE_HOST.test(base)
+  ) {
+    return `${base.replace(/\/$/, "")}/${normalized}`;
+  }
+  return `${base}/${normalized}`;
 }
 
 export function articleToRow(article: Article): ArticleInsertRow {
@@ -39,6 +106,7 @@ export function articleToRow(article: Article): ArticleInsertRow {
     is_breaking: article.isBreaking,
     status: article.status,
     legacy_wp_id: article.legacyWpId ?? null,
+    cms_origin: article.cmsOrigin === true,
     updated_at: article.updatedAt
       ? new Date(article.updatedAt).toISOString()
       : new Date().toISOString(),
@@ -53,13 +121,14 @@ export function rowToArticle(row: ArticleRow): Article {
     content: row.content ?? "",
     category: getPrimaryCategory(row.category ?? "News"),
     author: resolveAuthorDisplayName(row.author ?? ""),
-    tags: row.tags ?? [],
+    tags: normalizeArticleTags(row.tags),
     date: row.date,
     readingTime: row.reading_time ?? "",
-    image: row.image_url ?? "",
+    image: resolveImageUrl(row.image_url ?? ""),
     isBreaking: Boolean(row.is_breaking),
     status: normalizeStatus(row.status),
     updatedAt: Date.parse(row.updated_at) || undefined,
     legacyWpId: row.legacy_wp_id ?? undefined,
+    cmsOrigin: row.cms_origin === true,
   };
 }

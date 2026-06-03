@@ -3,7 +3,6 @@
 import * as React from "react";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/toaster";
 import { ArticlesProvider } from "@/store/articles-context";
 import { AdsProvider } from "@/store/ads-context";
 import { UsersProvider } from "@/store/users-context";
@@ -37,10 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <AdsProvider>
           <UsersProvider>
             <StaffProviders>
-              <TooltipProvider>
-                {children}
-                <Toaster />
-              </TooltipProvider>
+              <TooltipProvider>{children}</TooltipProvider>
             </StaffProviders>
           </UsersProvider>
         </AdsProvider>

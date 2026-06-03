@@ -33,6 +33,7 @@ async function fetchArticlePagesFull(): Promise<Article[]> {
       .from("articles")
       .select("*")
       .order("date", { ascending: false })
+      .order("updated_at", { ascending: false })
       .range(from, to);
 
     if (error) throw error;
@@ -49,6 +50,13 @@ async function fetchArticlePagesFull(): Promise<Article[]> {
 export const supabaseArticlesRepository: ArticlesRepository = {
   async listSummaries() {
     return fetchPublishedSummaries(clientOrThrow(), { publishedOnly: true });
+  },
+
+  async listAdminSummaries() {
+    return fetchPublishedSummaries(clientOrThrow(), {
+      publishedOnly: false,
+      includeTags: true,
+    });
   },
 
   async list() {
@@ -82,7 +90,7 @@ export const supabaseArticlesRepository: ArticlesRepository = {
         const partial = row as unknown as ArticleRow;
         return [
           partial.id.toLowerCase(),
-          rowToArticle({ ...partial, content: "", tags: [] }),
+          rowToArticle({ ...partial, content: "" }),
         ] as const;
       }),
     );

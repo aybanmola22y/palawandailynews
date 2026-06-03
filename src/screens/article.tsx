@@ -20,10 +20,15 @@ import { PopularNewsSidebar } from "@/components/editorial/PopularNewsSidebar";
 import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
 import { ArticleDetailHeader } from "@/components/editorial/ArticleDetailHeader";
+import { ArticleTags } from "@/components/editorial/ArticleTags";
 import { PageShell } from "@/components/editorial/PageShell";
 import { SidebarPanel } from "@/components/editorial/SidebarPanel";
 import { usePopularNewsArticles } from "@/hooks/use-popular-news-articles";
-import { formatArticleDate, getPublishedArticles } from "@/lib/site-articles";
+import {
+  formatArticleDate,
+  getPublishedArticles,
+  getRelatedArticles,
+} from "@/lib/site-articles";
 
 function resolveArticleId(param: string) {
   return param.startsWith("wp-") ? param.slice(3) : param;
@@ -179,9 +184,7 @@ export default function ArticleDetail() {
 
   const related = useMemo(() => {
     if (!article) return [];
-    return articles
-      .filter((a) => a.id !== article.id && a.status === "Published")
-      .slice(0, 3);
+    return getRelatedArticles(articles, article, 3);
   }, [articles, article]);
 
   const articleBody = useMemo(() => {
@@ -242,6 +245,8 @@ export default function ArticleDetail() {
                 renderContent(articleBody)
               )}
             </div>
+
+            <ArticleTags tags={article.tags} />
 
             <ArticleInlineAd />
 

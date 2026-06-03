@@ -8,7 +8,7 @@ import Link from "next/link";
 
 import type { Ad } from "@/store/ads-context";
 
-import { useAds } from "@/store/ads-context";
+import { shouldShowLiveAd, useAds } from "@/store/ads-context";
 
 import { cn } from "@/lib/utils";
 
@@ -74,10 +74,8 @@ export function AdUnit({
 
 
 
-  if (ad.status !== "Active" || !ad.image) {
-
+  if (!shouldShowLiveAd(ad)) {
     return null;
-
   }
 
 

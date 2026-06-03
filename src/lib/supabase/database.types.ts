@@ -17,6 +17,7 @@ export type ArticleRow = {
   is_breaking: boolean;
   status: string;
   legacy_wp_id: number | null;
+  cms_origin: boolean;
   created_at: string;
   updated_at: string;
 };

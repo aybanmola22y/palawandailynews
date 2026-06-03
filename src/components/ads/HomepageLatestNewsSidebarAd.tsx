@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Megaphone } from "lucide-react";
 import type { Ad } from "@/store/ads-context";
-import { useAds } from "@/store/ads-context";
+import { shouldShowLiveAd, useAds } from "@/store/ads-context";
 import { AdUnit } from "./AdUnit";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +49,7 @@ function SidebarAdPlaceholder({ ad, className }: { ad?: Ad; className?: string }
 export function HomepageLatestNewsSidebarAd({ className }: { className?: string }) {
   const { getAdByPlacement } = useAds();
   const ad = getAdByPlacement("sidebar");
-  const showLive = ad?.status === "Active" && Boolean(ad.image);
+  const showLive = ad ? shouldShowLiveAd(ad) : false;
 
   return (
     <aside

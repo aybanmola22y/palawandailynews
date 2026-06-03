@@ -1,0 +1,25 @@
+/* Center admin toast copy (Sileo defaults to left-aligned description). */
+[data-sileo-viewport] [data-sileo-description] {
+  text-align: center;
+}
+
+[data-sileo-viewport] [data-sileo-header] {
+  left: 0 !important;
+  width: 100%;
+  max-width: 100% !important;
+  justify-content: center;
+}
+
+[data-sileo-viewport] [data-sileo-header-stack] {
+  width: 100%;
+  justify-content: center;
+}
+
+[data-sileo-viewport] [data-sileo-header-inner] {
+  justify-content: center;
+  width: 100%;
+}
+
+[data-sileo-viewport] [data-sileo-title] {
+  text-align: center;
+}

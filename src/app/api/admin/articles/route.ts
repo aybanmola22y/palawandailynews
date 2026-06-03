@@ -29,11 +29,25 @@ export async function POST(request: NextRequest) {
     ...body,
     id,
     tags: body.tags ?? [],
+    cmsOrigin: true,
     updatedAt: Date.now(),
   });
 
   const { service } = auth;
   let { data, error } = await service.from("articles").insert(row as never).select().single();
+
+  if (
+    error &&
+    typeof error.message === "string" &&
+    error.message.includes('column "cms_origin"')
+  ) {
+    const { cms_origin: _cmsOrigin, ...rowWithoutFlag } = row as Record<string, unknown>;
+    ({ data, error } = await service
+      .from("articles")
+      .insert(rowWithoutFlag as never)
+      .select()
+      .single());
+  }
 
   if (
     error &&

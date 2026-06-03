@@ -35,11 +35,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[#F5F5F3] dark:bg-[#0A0A09] flex font-sans text-foreground">
       {/* Sidebar */}
       <aside className="w-[240px] bg-[#111111] text-white flex flex-col fixed h-full z-10 border-r border-[#2A2A26]">
-        <div className="p-6 border-b border-[#2A2A26]">
-          <Link href="/" className="font-serif font-bold text-[16px] tracking-tight text-white block hover:text-[#AAAAAA] transition-colors">
+        <div className="border-b border-[#2A2A26] px-6 py-6 text-center">
+          <Link
+            href="/"
+            className="font-serif font-bold text-[16px] tracking-tight text-white block hover:text-[#AAAAAA] transition-colors"
+          >
             PalawanDailyNews
           </Link>
-          <span className="text-[#AAAAAA] text-[11px] uppercase tracking-wider">Admin Dashboard</span>
+          <span className="mt-1 block text-[#AAAAAA] text-[11px] uppercase tracking-wider">
+            Admin Dashboard
+          </span>
         </div>
         <nav className="flex-1 py-6 flex flex-col">
           {navItems.map((item) => {

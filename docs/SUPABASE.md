@@ -45,12 +45,26 @@ npm run import-articles:supabase
 
 JSON instead: `npm run import-articles:supabase:json` with `data/extracted.json`.
 
-## 5. Hostinger images
+## 5. Hostinger images (FTP upload from admin)
 
-- Article featured image → `articles.image_url`  
-- Ad banners → `ads.image_url`  
+Image **files** live on Hostinger. Supabase stores only the public URL.
 
-Use full URLs (`https://palawandailynews.com/wp-content/uploads/...`) in your import data.
+Add to `.env` (server-only — never commit):
+
+| Variable | Purpose |
+|----------|---------|
+| `FTP_HOST` | e.g. `ftp.palawandailynews.com` |
+| `FTP_PORT` | Usually `21` |
+| `FTP_USER` | Hostinger FTP username |
+| `FTP_PASSWORD` | Hostinger FTP password |
+| `FTP_PUBLIC_BASE_URL` | e.g. `https://palawandailynews.com` |
+| `FTP_UPLOADS_DIR` | Folder inside Hostinger **public_html** (site root), default `pdn_new_website_uploads` |
+| `FTP_PUBLIC_WEB_PREFIX` | Leave empty — images are served at `https://yoursite.com/pdn_new_website_uploads/...` |
+| `FTP_SECURE` | `true` for FTPS, else `false` |
+
+Admin **Articles** and **Ads** upload via `POST /api/admin/upload-image` → FTP → returns a URL saved in `articles.image_url` or `ads.image_url`.
+
+Imported archives can still use full URLs (`https://palawandailynews.com/wp-content/uploads/...`).
 
 ## 6. Remove legacy `media` table
 

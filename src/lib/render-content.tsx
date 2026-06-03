@@ -1,15 +1,9 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment } from "react";
 import {
   decodeStoredHtml,
   excerptToPlainText,
   looksLikeHtml as contentLooksLikeHtml,
 } from "@/lib/html-editor-content";
-
-function getAdInsertIndex(blockCount: number): number | null {
-  if (blockCount < 2) return null;
-  if (blockCount < 5) return 1;
-  return Math.floor(blockCount / 2);
-}
 
 function looksLikeHtml(content: string) {
   return contentLooksLikeHtml(decodeStoredHtml(content));
@@ -579,10 +573,7 @@ function renderBlock(block: string, key: number) {
   );
 }
 
-export function renderContent(
-  content: string,
-  options?: { midContentAd?: ReactNode },
-) {
+export function renderContent(content: string) {
   const decoded = decodeArticleContent(content);
 
   if (!decoded || decoded === "Full content here...") {
@@ -603,17 +594,11 @@ export function renderContent(
   }
 
   const blocks = decoded.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-  const adInsertIndex = options?.midContentAd
-    ? getAdInsertIndex(blocks.length)
-    : null;
 
   return (
     <>
       {blocks.map((block, i) => (
-        <Fragment key={i}>
-          {renderBlock(block, i)}
-          {adInsertIndex === i && options?.midContentAd}
-        </Fragment>
+        <Fragment key={i}>{renderBlock(block, i)}</Fragment>
       ))}
     </>
   );

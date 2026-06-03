@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Megaphone } from "lucide-react";
 import type { Ad } from "@/store/ads-context";
-import { useAds } from "@/store/ads-context";
+import { shouldShowLiveAd, useAds } from "@/store/ads-context";
 import { AdUnit } from "./AdUnit";
 
 function HeaderAdPlaceholder({ ad }: { ad?: Ad }) {
@@ -46,7 +46,7 @@ function HeaderAdPlaceholder({ ad }: { ad?: Ad }) {
 export function HeaderAdBanner() {
   const { getAdByPlacement } = useAds();
   const ad = getAdByPlacement("header-banner");
-  const showLive = ad?.status === "Active" && Boolean(ad.image);
+  const showLive = ad ? shouldShowLiveAd(ad) : false;
 
   return (
     <section

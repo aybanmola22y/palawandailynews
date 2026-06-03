@@ -1,7 +1,7 @@
 import type { Article } from "@/types/article";
 
 /** Bump when cache shape/invalidation rules change (forces clients to refetch). */
-export const ARTICLES_SUMMARIES_CACHE_KEY = "pdn-articles-summaries-v3";
+export const ARTICLES_SUMMARIES_CACHE_KEY = "pdn-articles-summaries-v5";
 const CACHE_KEY = ARTICLES_SUMMARIES_CACHE_KEY;
 /** Bumped on admin writes so other tabs drop stale lists. */
 export const ARTICLES_CACHE_BUST_KEY = "pdn-articles-cache-bust";
@@ -43,6 +43,8 @@ function clearLegacySessionCache() {
       sessionStorage.removeItem("pdn-articles-summaries-v1");
       sessionStorage.removeItem("pdn-articles-summaries-v2");
       localStorage.removeItem("pdn-articles-summaries-v2");
+      localStorage.removeItem("pdn-articles-summaries-v3");
+      localStorage.removeItem("pdn-articles-summaries-v4");
   } catch {
     /* ignore */
   }

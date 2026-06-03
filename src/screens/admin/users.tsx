@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useUsers, UserRole, type AdminUser } from "@/store/users-context";
 import { useArticles } from "@/store/articles-context";
-import { useToast } from "@/hooks/use-toast";
+import { adminToast } from "@/lib/admin-toast";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { Search, ExternalLink } from "lucide-react";
 import { RolePermissionsPanel } from "@/components/admin/RolePermissionsPanel";
@@ -68,7 +68,6 @@ export default function AdminUsers() {
   const { users, loading, error, refreshUsers, addUser, updateUser, deleteUser } =
     useUsers();
   const { articles } = useArticles();
-  const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
@@ -126,20 +125,15 @@ export default function AdminUsers() {
 
   async function handleSave() {
     if (!form.name.trim() || !form.email.trim()) {
-      toast({
-        title: "Missing fields",
-        description: "Name and email are required.",
-        variant: "destructive",
-      });
+      adminToast.error("Missing fields", "Name and email are required.");
       return;
     }
 
     if (modal === "add" && !form.password.trim()) {
-      toast({
-        title: "Password required",
-        description: "Set a password for the new Supabase login.",
-        variant: "destructive",
-      });
+      adminToast.error(
+        "Password required",
+        "Set a password for the new Supabase login.",
+      );
       return;
     }
 
@@ -152,30 +146,26 @@ export default function AdminUsers() {
           role: form.role,
           password: form.password,
         });
-        toast({
-          title: "User added",
-          description: `${form.name} can sign in with the email and password you set.`,
-        });
+        adminToast.success(
+          "User added",
+          `${form.name} can sign in with the email and password you set.`,
+        );
       } else if (modal === "edit" && editingId) {
         await updateUser(editingId, {
           name: form.name.trim(),
           email: form.email.trim(),
           role: form.role,
         });
-        toast({
-          title: "User updated",
-          description: `${form.name}'s account was saved.`,
-        });
+        adminToast.success("User updated", `${form.name}'s account was saved.`);
       }
       setModal(null);
       setEditingId(null);
       setForm(emptyForm());
     } catch (err) {
-      toast({
-        title: "Could not save",
-        description: err instanceof Error ? err.message : "Something went wrong.",
-        variant: "destructive",
-      });
+      adminToast.error(
+        "Could not save",
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
     } finally {
       setSaving(false);
     }
@@ -188,25 +178,23 @@ export default function AdminUsers() {
       const ok = await deleteUser(deleteId);
       setDeleteId(null);
       if (!ok) {
-        toast({
-          title: "Cannot remove user",
-          description: "At least one Super Admin must remain on the team.",
-          variant: "destructive",
-        });
+        adminToast.error(
+          "Cannot remove user",
+          "At least one Super Admin must remain on the team.",
+        );
         return;
       }
-      toast({
-        title: "User removed",
-        description: user
+      adminToast.success(
+        "User removed",
+        user
           ? `${user.name} was removed from the CMS and Supabase Auth.`
           : "User was removed.",
-      });
+      );
     } catch (err) {
-      toast({
-        title: "Could not remove user",
-        description: err instanceof Error ? err.message : "Something went wrong.",
-        variant: "destructive",
-      });
+      adminToast.error(
+        "Could not remove user",
+        err instanceof Error ? err.message : "Something went wrong.",
+      );
     }
   }
 

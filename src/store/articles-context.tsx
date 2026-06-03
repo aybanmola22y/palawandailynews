@@ -21,6 +21,10 @@ import {
 } from "@/lib/articles/articles-cache";
 import { dedupeArticlesById } from "@/lib/articles/dedupe-articles";
 import {
+  loadAdminSummariesBootstrap,
+  loadAdminSummariesFull,
+} from "@/lib/articles/load-admin-summaries";
+import {
   loadPublicSummariesBootstrap,
   loadPublicSummariesFull,
 } from "@/lib/articles/load-public-summaries";
@@ -56,7 +60,8 @@ const ArticlesContext = createContext<ArticlesContextType | null>(null);
 
 export function ArticlesProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const needsFullContent = pathname.startsWith("/admin");
+  const isAdminRoute =
+    pathname.startsWith("/admin") && pathname !== "/admin/login";
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,11 +92,19 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (needsFullContent) {
+    if (isAdminRoute) {
       setLoading(true);
       try {
-        const list = await repo.list();
-        if (mounted.current) setArticles(list);
+        const bootstrap = await loadAdminSummariesBootstrap();
+        if (mounted.current && bootstrap.length) {
+          setArticles(dedupeArticlesById(bootstrap));
+          setLoading(false);
+        }
+
+        if (mounted.current) setArchiveLoading(true);
+
+        const full = dedupeArticlesById(await loadAdminSummariesFull());
+        if (mounted.current) setArticles(full);
       } catch (err) {
         if (mounted.current) {
           setError(err instanceof Error ? err.message : "Failed to load articles");
@@ -139,7 +152,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
         setArchiveLoading(false);
       }
     }
-  }, [repo, needsFullContent]);
+  }, [repo, isAdminRoute]);
 
   const ensureArticleContent = useCallback(
     async (id: string) => {
@@ -148,13 +161,13 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       const existing = articlesRef.current.find(
         (a) => a.id.toLowerCase() === id.toLowerCase(),
       );
-      if (!needsFullContent && existing?.content?.trim()) return;
+      if (!isAdminRoute && existing?.content?.trim()) return;
       if (loadingContentIds.current.has(id)) return;
 
       loadingContentIds.current.add(id);
       const normalizedId = id.toLowerCase();
       try {
-        const full = needsFullContent
+        const full = isAdminRoute
           ? await fetchAdminArticle(id)
           : await repo.getById(id);
         if (full && mounted.current) {
@@ -170,7 +183,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
         loadingContentIds.current.delete(id);
       }
     },
-    [repo, needsFullContent],
+    [repo, isAdminRoute],
   );
 
   useEffect(() => {
@@ -207,6 +220,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       ...article,
       id: tempId,
       tags: article.tags ?? [],
+      cmsOrigin: true,
       updatedAt: Date.now(),
     };
     setArticles((prev) => [optimistic, ...prev]);
@@ -216,9 +230,6 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
         setArticles((prev) =>
           prev.map((a) => (a.id === tempId ? created : a)),
         );
-        if (needsFullContent) {
-          await refreshArticles();
-        }
         return created;
       })
       .catch((err) => {
@@ -249,9 +260,6 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
         setArticles((prev) =>
           prev.map((a) => (a.id === id ? { ...a, ...saved } : a)),
         );
-        if (needsFullContent) {
-          await refreshArticles();
-        }
       })
       .catch((err) => {
         setArticles(previous);
@@ -273,11 +281,6 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
     setArticles((prev) => prev.filter((a) => a.id !== id));
 
     return deleteAdminArticle(id)
-      .then(async () => {
-        if (needsFullContent) {
-          await refreshArticles();
-        }
-      })
       .catch((err) => {
         setArticles(previous);
         const message = err instanceof Error ? err.message : "Failed to delete article";

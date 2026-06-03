@@ -6,9 +6,38 @@ import { excerptToPlainText } from "@/lib/html-editor-content";
 import type { Database } from "@/lib/supabase/database.types";
 
 export const ARTICLE_SUMMARY_SELECT =
-  "id, title, excerpt, category, author, date, reading_time, image_url, is_breaking, status, updated_at, legacy_wp_id";
+  "id, title, excerpt, category, author, tags, date, reading_time, image_url, is_breaking, status, updated_at, legacy_wp_id, cms_origin";
+
+const ARTICLE_SUMMARY_SELECT_LEGACY = ARTICLE_SUMMARY_SELECT.replace(
+  ", cms_origin",
+  "",
+);
+
+/** @deprecated Same as ARTICLE_SUMMARY_SELECT — tags are always loaded. */
+export const ADMIN_ARTICLE_SUMMARY_SELECT = ARTICLE_SUMMARY_SELECT;
 
 const PAGE_SIZE = 1000;
+
+function isMissingCmsOriginColumn(message: string | undefined) {
+  return Boolean(message?.includes("cms_origin"));
+}
+
+let resolvedSummarySelect = ARTICLE_SUMMARY_SELECT;
+
+function summarySelectColumns() {
+  return resolvedSummarySelect;
+}
+
+function downgradeSummarySelectOnError(error: { message?: string } | null) {
+  if (
+    resolvedSummarySelect === ARTICLE_SUMMARY_SELECT &&
+    isMissingCmsOriginColumn(error?.message)
+  ) {
+    resolvedSummarySelect = ARTICLE_SUMMARY_SELECT_LEGACY;
+    return true;
+  }
+  return false;
+}
 const MAX_PAGES = 30;
 const LIST_EXCERPT_MAX = 280;
 
@@ -19,13 +48,11 @@ function trimListExcerpt(excerpt: string) {
 }
 
 function rowToSummaryArticle(row: ArticleRow): Article {
-  const article = rowToArticle({
+  return rowToArticle({
     ...row,
     excerpt: trimListExcerpt(row.excerpt ?? ""),
     content: "",
-    tags: [],
   });
-  return article;
 }
 
 async function fetchSummaryPage(
@@ -36,15 +63,19 @@ async function fetchSummaryPage(
 ) {
   let query = client
     .from("articles")
-    .select(ARTICLE_SUMMARY_SELECT)
+    .select(summarySelectColumns())
     .order("date", { ascending: false })
+    .order("updated_at", { ascending: false })
     .range(from, to);
 
   if (publishedOnly) {
     query = query.eq("status", "Published");
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
+  if (error && downgradeSummarySelectOnError(error)) {
+    return fetchSummaryPage(client, from, to, publishedOnly);
+  }
   if (error) throw error;
   return (data ?? []).map((row) =>
     rowToSummaryArticle(row as unknown as ArticleRow),
@@ -55,6 +86,8 @@ export type FetchPublishedSummariesOptions = {
   /** First paint — cap rows (single round-trip). */
   limit?: number;
   publishedOnly?: boolean;
+  /** @deprecated Tags are always included in summaries. */
+  includeTags?: boolean;
 };
 
 /** Paginated summary fetch; optional parallel follow-up pages when uncapped. */
@@ -67,13 +100,17 @@ export async function fetchPublishedSummaries(
   if (options.limit != null && options.limit > 0) {
     let query = client
       .from("articles")
-      .select(ARTICLE_SUMMARY_SELECT)
+      .select(summarySelectColumns())
       .order("date", { ascending: false })
+      .order("updated_at", { ascending: false })
       .limit(options.limit);
 
     if (publishedOnly) query = query.eq("status", "Published");
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error && downgradeSummarySelectOnError(error)) {
+      return fetchPublishedSummaries(client, options);
+    }
     if (error) throw error;
     return (data ?? []).map((row) =>
       rowToSummaryArticle(row as unknown as ArticleRow),

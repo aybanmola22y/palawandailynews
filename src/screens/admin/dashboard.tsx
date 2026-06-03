@@ -1,86 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useArticles } from "@/store/articles-context";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  Brush,
-} from "recharts";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { ArrowRight, ExternalLink } from "lucide-react";
-import {
-  formatAdminDateTime,
-  sortArticlesByRecent,
-} from "@/lib/admin-utils";
+import { formatAdminDateTime } from "@/lib/admin-utils";
+import type { Article } from "@/types/article";
+
+const PublishingActivityChart = dynamic(
+  () =>
+    import("@/components/admin/PublishingActivityChart").then(
+      (m) => m.PublishingActivityChart,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="lg:col-span-2 bg-white dark:bg-[#1A1A18] border border-border p-6 min-h-[380px] animate-pulse" />
+    ),
+  },
+);
+
+type DashboardOverview = {
+  counts: {
+    published: number;
+    drafts: number;
+    review: number;
+    total: number;
+  };
+  recentPublished: Article[];
+  latestByDate: Article[];
+  topTags: { tag: string; count: number }[];
+};
 
 export default function AdminDashboard() {
-  const { articles } = useArticles();
-  const [publishingSeries, setPublishingSeries] = useState<
-    { label: string; published: number }[]
-  >([]);
-  const [publishingError, setPublishingError] = useState<string | null>(null);
-  const [brush, setBrush] = useState<{ startIndex: number; endIndex: number } | null>(
-    null,
-  );
-
-  const cmsDrafts = articles.filter((a) => a.status === "Draft").length;
-  const cmsReview = articles.filter((a) => a.status === "Review").length;
-  const cmsTotal = articles.length;
-  const cmsPublished = articles.filter((a) => a.status === "Published").length;
-
-  const cmsRecent = useMemo(
-    () =>
-      sortArticlesByRecent(articles)
-        .filter((a) => a.status === "Published")
-        .slice(0, 6),
-    [articles],
-  );
-
-  /** Latest by publication date — not a real audit log of who clicked Save. */
-  const cmsLatest = useMemo(
-    () =>
-      [...articles]
-        .sort((a, b) => Date.parse(b.date) - Date.parse(a.date))
-        .filter((a) => !Number.isNaN(Date.parse(a.date)))
-        .slice(0, 6),
-    [articles],
-  );
-
-  const topTags = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const a of articles) {
-      for (const tag of a.tags ?? []) {
-        const key = tag.trim();
-        if (!key) continue;
-        counts.set(key, (counts.get(key) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
-  }, [articles]);
+  const [overview, setOverview] = useState<DashboardOverview | null>(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void fetch("/api/admin/analytics/publishing?days=120", {
-      credentials: "include",
-    })
+    void fetch("/api/admin/dashboard/overview", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((data: { series?: { label: string; published: number }[] }) => {
-        if (cancelled) return;
-        const series = data.series ?? [];
-        setPublishingSeries(series);
-        setPublishingError(null);
-
-        // Default view: last 30 days, draggable via Brush.
-        if (series.length > 0) {
-          const endIndex = series.length - 1;
-          const startIndex = Math.max(0, series.length - 30);
-          setBrush({ startIndex, endIndex });
+      .then((data: DashboardOverview) => {
+        if (!cancelled) {
+          setOverview(data);
+          setOverviewError(null);
         }
       })
       .catch(async (err) => {
@@ -88,9 +51,9 @@ export default function AdminDashboard() {
         try {
           const text =
             typeof err?.text === "function" ? await err.text() : String(err);
-          setPublishingError(text || "Failed to load publishing analytics");
+          setOverviewError(text || "Failed to load dashboard");
         } catch {
-          setPublishingError("Failed to load publishing analytics");
+          setOverviewError("Failed to load dashboard");
         }
       });
     return () => {
@@ -98,20 +61,19 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  const chartData = useMemo(() => {
-    if (publishingSeries.length > 0) {
-      return publishingSeries.map((d) => ({
-        name: d.label,
-        published: d.published,
-      }));
-    }
-    // Fallback: simple per-day estimate so the chart isn't empty while loading.
-    const base = Math.max(cmsPublished / 30, 1);
-    return Array.from({ length: 30 }, (_, i) => ({
-      name: `Day ${i + 1}`,
-      published: Math.round(base),
-    }));
-  }, [publishingSeries, cmsPublished]);
+  const counts = overview?.counts;
+  const cmsPublished = counts?.published ?? "—";
+  const cmsDrafts = counts?.drafts ?? "—";
+  const cmsReview = counts?.review ?? "—";
+  const cmsTotal = counts?.total ?? "—";
+  const cmsRecent = overview?.recentPublished ?? [];
+  const cmsLatest = overview?.latestByDate ?? [];
+  const topTags = overview?.topTags ?? [];
+
+  const fallbackDaily = Math.max(
+    typeof counts?.published === "number" ? counts.published / 30 : 1,
+    1,
+  );
 
   return (
     <div className="flex flex-col gap-8">
@@ -121,6 +83,9 @@ export default function AdminDashboard() {
         </h1>
         <p className="text-[14px] text-muted-foreground mt-1">
           Overview of published stories and editorial workflow.
+          {overviewError ? (
+            <span className="block text-primary mt-1">{overviewError}</span>
+          ) : null}
         </p>
       </header>
 
@@ -178,73 +143,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white dark:bg-[#1A1A18] border border-border p-6">
-          <h2 className="text-[14px] font-bold uppercase tracking-widest mb-1">
-            Publishing activity
-          </h2>
-          <p className="text-[11px] text-muted-foreground mb-6">
-            Published stories per day. Drag the slider to view earlier dates.
-            {publishingError ? ` (${publishingError})` : ""}
-          </p>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={false}
-                  stroke="var(--color-border)"
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  fontSize={12}
-                  stroke="var(--color-muted-foreground)"
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  fontSize={12}
-                  stroke="var(--color-muted-foreground)"
-                />
-                <Tooltip
-                  contentStyle={{
-                    fontSize: 12,
-                    borderRadius: 0,
-                    borderColor: "hsl(var(--border))",
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="published"
-                  stroke="#C41E3A"
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, fill: "#C41E3A" }}
-                />
-                {chartData.length > 31 ? (
-                  <Brush
-                    dataKey="name"
-                    height={26}
-                    stroke="#C41E3A"
-                    travellerWidth={10}
-                    startIndex={brush?.startIndex}
-                    endIndex={brush?.endIndex}
-                    onChange={(next) => {
-                      if (!next) return;
-                      if (
-                        typeof next.startIndex === "number" &&
-                        typeof next.endIndex === "number"
-                      ) {
-                        setBrush({ startIndex: next.startIndex, endIndex: next.endIndex });
-                      }
-                    }}
-                  />
-                ) : null}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        <PublishingActivityChart days={30} fallbackDaily={fallbackDaily} />
 
         <div className="lg:col-span-1 bg-white dark:bg-[#1A1A18] border border-border p-6 flex flex-col">
           <div className="flex items-center justify-between mb-6">
@@ -259,7 +158,12 @@ export default function AdminDashboard() {
             </Link>
           </div>
           <div className="flex flex-col flex-1 gap-0">
-            {cmsLatest.length === 0 && (
+            {!overview && !overviewError && (
+              <p className="text-[13px] text-muted-foreground animate-pulse">
+                Loading…
+              </p>
+            )}
+            {overview && cmsLatest.length === 0 && (
               <p className="text-[13px] text-muted-foreground">
                 No articles yet.{" "}
                 <Link href="/admin/articles/new" className="text-primary hover:underline">
@@ -320,11 +224,11 @@ export default function AdminDashboard() {
         </h2>
         {topTags.length === 0 ? (
           <p className="text-[13px] text-muted-foreground">
-            No tags yet.
+            {overview ? "No tags yet." : "Loading…"}
           </p>
         ) : (
           <div className="flex flex-wrap gap-2">
-            {topTags.map(([tag, count]) => (
+            {topTags.map(({ tag, count }) => (
               <span
                 key={tag}
                 className="inline-flex items-center gap-2 border border-border bg-card px-3 py-1.5 text-[11px] uppercase tracking-wider"

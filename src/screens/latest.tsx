@@ -48,7 +48,7 @@ export default function LatestNews() {
       <PageShell sidebar={<LatestSidebar />}>
         <PageHeader
           title="Latest News"
-          description={`Reporting from across Palawan — environment, business, politics, and community. (${filtered.length} stories)`}
+          description="Daily coverage from Puerto Princesa and across the province — breaking news, local government, business, environment, lifestyle, and community life. Browse by topic below."
         />
 
         <div className="mb-8 flex flex-wrap gap-2">

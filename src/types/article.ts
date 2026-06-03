@@ -17,6 +17,8 @@ export interface Article {
   updatedAt?: number;
   /** Original WordPress post id (imports only). */
   legacyWpId?: number;
+  /** True when first saved from the admin CMS (not a bulk import). */
+  cmsOrigin?: boolean;
 }
 
 export type ArticleInsert = Omit<Article, "id" | "updatedAt"> & {
