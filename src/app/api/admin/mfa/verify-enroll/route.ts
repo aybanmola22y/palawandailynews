@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import { verifyAdminMfaCode } from "@/lib/admin-mfa";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
+import {
+  enforceAdminAuthRateLimit,
+  recordAdminAuthFailure,
+  rateLimitResponse,
+} from "@/lib/security/admin-auth-rate-limit";
 
 export async function POST(request: NextRequest) {
   const auth = await requireAdminRouteAuth({ allowBeforeMfaEnrolled: true });
@@ -25,6 +30,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const rateLimited = await enforceAdminAuthRateLimit(request, ["mfa-enroll"]);
+  if (rateLimited) return rateLimited;
+
   const supabase = await createServerSupabaseClient();
   if (!supabase) {
     return NextResponse.json(
@@ -39,6 +47,8 @@ export async function POST(request: NextRequest) {
     challengeId,
   });
   if (!verified.ok) {
+    const fail = await recordAdminAuthFailure(request, "mfa-enroll");
+    if (!fail.allowed) return rateLimitResponse(fail.retryAfterSec);
     return NextResponse.json({ error: verified.message }, { status: 401 });
   }
 

@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import type { NextResponse } from "next/server";
+import { buildContentSecurityPolicy } from "@/lib/security/content-security-policy";
 
 /** Anti-clickjacking, MIME sniffing, and baseline hardening on every response. */
 export function applySecurityHeaders(
@@ -7,10 +8,7 @@ export function applySecurityHeaders(
   request?: NextRequest,
 ): NextResponse {
   response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set(
-    "Content-Security-Policy",
-    "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
-  );
+  response.headers.set("Content-Security-Policy", buildContentSecurityPolicy());
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set(

@@ -1,12 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import {
+  enforceAdminAuthRateLimit,
+  recordAdminAuthFailure,
+  rateLimitResponse,
+} from "@/lib/security/admin-auth-rate-limit";
 
 /**
  * One-time / dev helper: set a Supabase Auth password when you know ADMIN_SETUP_SECRET.
  * Add ADMIN_SETUP_SECRET=... to .env (do not commit). Remove after onboarding.
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
@@ -43,7 +48,14 @@ export async function POST(request: Request) {
     );
   }
 
+  const rateLimited = await enforceAdminAuthRateLimit(request, [
+    "setup-password-ip",
+  ]);
+  if (rateLimited) return rateLimited;
+
   if (secret !== expectedSecret) {
+    const locked = await recordAdminAuthFailure(request, "setup-password-ip");
+    if (!locked.allowed) return rateLimitResponse(locked.retryAfterSec);
     return NextResponse.json({ error: "Invalid setup key." }, { status: 403 });
   }
 

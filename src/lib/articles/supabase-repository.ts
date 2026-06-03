@@ -8,7 +8,7 @@ import {
 } from "@/lib/articles/map-article-row";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
-  ARTICLE_SUMMARY_SELECT,
+  fetchArticlesByIds,
   fetchPublishedSummaries,
 } from "@/lib/articles/fetch-published-summaries";
 
@@ -75,29 +75,7 @@ export const supabaseArticlesRepository: ArticlesRepository = {
   },
 
   async listByIds(ids) {
-    const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
-    if (uniqueIds.length === 0) return [];
-
-    const { data, error } = await clientOrThrow()
-      .from("articles")
-      .select(ARTICLE_SUMMARY_SELECT)
-      .in("id", uniqueIds);
-
-    if (error) throw error;
-
-    const byId = new Map(
-      (data ?? []).map((row) => {
-        const partial = row as unknown as ArticleRow;
-        return [
-          partial.id.toLowerCase(),
-          rowToArticle({ ...partial, content: "" }),
-        ] as const;
-      }),
-    );
-
-    return uniqueIds
-      .map((id) => byId.get(id.toLowerCase()))
-      .filter((article): article is Article => Boolean(article));
+    return fetchArticlesByIds(clientOrThrow(), ids, { publishedOnly: true });
   },
 
   async create(article) {

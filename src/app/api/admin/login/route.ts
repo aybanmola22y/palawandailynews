@@ -18,6 +18,12 @@ import {
   createSupabaseRouteHandlerClient,
   mergeSupabaseCookies,
 } from "@/lib/supabase/route-handler";
+import { requireAdminCaptchaPass } from "@/lib/security/admin-captcha";
+import {
+  clearAdminAuthRateLimits,
+  enforceAdminAuthRateLimit,
+  recordAdminLoginFailures,
+} from "@/lib/security/admin-auth-rate-limit";
 
 export async function POST(request: NextRequest) {
   let body: { email?: string; password?: string };
@@ -37,6 +43,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const captchaBlocked = await requireAdminCaptchaPass(request);
+  if (captchaBlocked) return captchaBlocked;
+
+  const rateLimited = await enforceAdminAuthRateLimit(
+    request,
+    ["login-ip", "login-email"],
+    email,
+  );
+  if (rateLimited) return rateLimited;
+
   if (useSupabaseAdminAuth()) {
     const cookieResponse = new NextResponse(null, { status: 200 });
     const supabase = createSupabaseRouteHandlerClient(request, cookieResponse);
@@ -53,6 +69,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
+      const locked = await recordAdminLoginFailures(request, email);
+      if (locked) return locked;
       const hint = await diagnoseAdminLoginFailure(email);
       return NextResponse.json(
         { error: hint.message },
@@ -71,6 +89,8 @@ export async function POST(request: NextRequest) {
         { status: 503 },
       );
     }
+
+    await clearAdminAuthRateLimits(request, email);
 
     if (await adminMustEnrollMfa(supabase)) {
       const jsonResponse = NextResponse.json({ enrollmentRequired: true });
@@ -106,6 +126,8 @@ export async function POST(request: NextRequest) {
   }
 
   if (!credentialsAreValid(email, password)) {
+    const locked = await recordAdminLoginFailures(request, email);
+    if (locked) return locked;
     return NextResponse.json(
       { error: "Invalid email or password." },
       { status: 401 },
@@ -115,6 +137,7 @@ export async function POST(request: NextRequest) {
   const profile = resolveAdminProfileFromSeed(email);
   const token = await createLegacySessionToken(profile);
 
+  await clearAdminAuthRateLimits(request, email);
   const response = NextResponse.json({ user: profile });
   response.cookies.set(ADMIN_SESSION_COOKIE, token, {
     httpOnly: true,

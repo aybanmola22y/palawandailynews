@@ -26,6 +26,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|ico|woff2)$).*)",
+    /*
+     * Skip all Next internals (chunks, HMR, images) and static files so dev
+     * does not hit ChunkLoadError on stale or HMR-specific assets.
+     */
+    "/((?!_next|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|webp|ico|woff2)$).*)",
   ],
 };

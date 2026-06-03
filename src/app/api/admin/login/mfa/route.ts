@@ -8,6 +8,12 @@ import {
   createSupabaseRouteHandlerClient,
   mergeSupabaseCookies,
 } from "@/lib/supabase/route-handler";
+import { requireAdminCaptchaPass } from "@/lib/security/admin-captcha";
+import {
+  clearAdminAuthRateLimits,
+  enforceAdminAuthRateLimit,
+  recordAdminMfaFailure,
+} from "@/lib/security/admin-auth-rate-limit";
 
 export async function POST(request: NextRequest) {
   if (!useSupabaseAdminAuth()) {
@@ -39,6 +45,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const captchaBlocked = await requireAdminCaptchaPass(request);
+  if (captchaBlocked) return captchaBlocked;
+
+  const rateLimited = await enforceAdminAuthRateLimit(request, ["mfa-ip"]);
+  if (rateLimited) return rateLimited;
+
   const cookieResponse = new NextResponse(null, { status: 200 });
   const supabase = createSupabaseRouteHandlerClient(request, cookieResponse);
   if (!supabase) {
@@ -64,6 +76,8 @@ export async function POST(request: NextRequest) {
     challengeId,
   });
   if (!verified.ok) {
+    const locked = await recordAdminMfaFailure(request);
+    if (locked) return locked;
     return NextResponse.json({ error: verified.message }, { status: 401 });
   }
 
@@ -73,6 +87,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  await clearAdminAuthRateLimits(request, user.email ?? undefined);
   const jsonResponse = NextResponse.json({ user: profile });
   mergeSupabaseCookies(cookieResponse, jsonResponse);
   return jsonResponse;

@@ -8,6 +8,8 @@ import {
   createSupabaseRouteHandlerClient,
   mergeSupabaseCookies,
 } from "@/lib/supabase/route-handler";
+import { requireAdminCaptchaPass } from "@/lib/security/admin-captcha";
+import { enforceAdminAuthRateLimit } from "@/lib/security/admin-auth-rate-limit";
 
 /** Start (or refresh) a TOTP challenge for an existing AAL1 session. */
 export async function POST(request: NextRequest) {
@@ -17,6 +19,12 @@ export async function POST(request: NextRequest) {
       { status: 503 },
     );
   }
+
+  const captchaBlocked = await requireAdminCaptchaPass(request);
+  if (captchaBlocked) return captchaBlocked;
+
+  const rateLimited = await enforceAdminAuthRateLimit(request, ["mfa-ip"]);
+  if (rateLimited) return rateLimited;
 
   const cookieResponse = new NextResponse(null, { status: 200 });
   const supabase = createSupabaseRouteHandlerClient(request, cookieResponse);

@@ -148,3 +148,40 @@ export async function fetchPublishedSummaries(
 
   return [...first, ...rest];
 }
+
+/** Load specific articles by slug id (homepage Popular News, etc.). */
+export async function fetchArticlesByIds(
+  client: SupabaseClient<Database>,
+  ids: readonly string[],
+  options: { publishedOnly?: boolean } = {},
+): Promise<Article[]> {
+  const uniqueIds = [...new Set(ids.map((id) => id.trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) return [];
+
+  const publishedOnly = options.publishedOnly !== false;
+
+  let query = client
+    .from("articles")
+    .select(summarySelectColumns())
+    .in("id", uniqueIds);
+
+  if (publishedOnly) query = query.eq("status", "Published");
+
+  let { data, error } = await query;
+  if (error && downgradeSummarySelectOnError(error)) {
+    return fetchArticlesByIds(client, ids, options);
+  }
+  if (error) throw error;
+
+  const byId = new Map(
+    (data ?? []).map((row) => {
+      const partial = row as unknown as ArticleRow;
+      const article = rowToSummaryArticle(partial);
+      return [partial.id.toLowerCase(), article] as const;
+    }),
+  );
+
+  return uniqueIds
+    .map((id) => byId.get(id.toLowerCase()))
+    .filter((article): article is Article => Boolean(article));
+}

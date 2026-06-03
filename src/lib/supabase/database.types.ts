@@ -68,6 +68,13 @@ export type StaffProfileRow = {
   updated_at: string;
 };
 
+export type AdminAuthRateLimitRow = {
+  key: string;
+  attempts: number;
+  window_start: string;
+  locked_until: string | null;
+};
+
 export type ArticleInsertRow = Omit<ArticleRow, "created_at" | "updated_at"> & {
   created_at?: string;
   updated_at?: string;
@@ -109,6 +116,12 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<StaffProfileRow>;
+        Relationships: [];
+      };
+      admin_auth_rate_limits: {
+        Row: AdminAuthRateLimitRow;
+        Insert: AdminAuthRateLimitRow;
+        Update: Partial<AdminAuthRateLimitRow>;
         Relationships: [];
       };
     };

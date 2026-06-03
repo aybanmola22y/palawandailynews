@@ -91,6 +91,27 @@ If Site URL is invalid (e.g. missing `https://`), Supabase can error on some aut
 
 Optional: `ADMIN_MFA_TOTP_ISSUER` in Vercel/env to customize the name shown in Microsoft Authenticator.
 
+### Brute-force protection (admin login / MFA)
+
+Run once in **SQL Editor**: `scripts/create-admin-auth-rate-limits.sql`
+
+Limits failed attempts per IP and per email (login), and per IP for MFA. Lockouts return HTTP **429** with `Retry-After`. Uses Supabase when the table exists; falls back to in-memory limits in local dev only.
+
+### Admin login captcha (Cloudflare Turnstile)
+
+Staff clicking **Admin Login** in the site footer go to `/admin/login`, complete Turnstile first, then see the email/password form.
+
+Add to Vercel / `.env`:
+
+| Variable | Purpose |
+|----------|---------|
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Public site key (widget) |
+| `TURNSTILE_SECRET_KEY` | Secret for server verification |
+
+Create keys at [Cloudflare Turnstile](https://dash.cloudflare.com/?to=/:account/turnstile). Use hostname `localhost` for dev and your production domain for live.
+
+If keys are omitted, captcha is skipped (local dev only — set keys in production).
+
 ## Architecture
 
 ```

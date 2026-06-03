@@ -31,6 +31,7 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
+import { AdminLoginCaptcha } from "@/components/admin/AdminLoginCaptcha";
 import { sanitizeRedirectPath } from "@/lib/security/safe-url";
 
 const loginSchema = z.object({
@@ -44,6 +45,8 @@ type MfaPending = {
   factorId: string;
   challengeId: string;
 };
+
+type GatePhase = "checking" | "captcha" | "login";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -68,6 +71,8 @@ export default function AdminLogin() {
       : null,
   );
   const [showPassword, setShowPassword] = useState(false);
+  const [gate, setGate] = useState<GatePhase>("checking");
+  const [captchaSiteKey, setCaptchaSiteKey] = useState<string | null>(null);
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -80,7 +85,33 @@ export default function AdminLogin() {
   });
 
   useEffect(() => {
-    if (stepParam !== "mfa") return;
+    let cancelled = false;
+    void fetch("/api/admin/captcha/status", { credentials: "include" })
+      .then(async (res) => {
+        const data = (await res.json()) as {
+          required?: boolean;
+          passed?: boolean;
+          siteKey?: string | null;
+        };
+        if (cancelled) return;
+        if (!data.required || data.passed) {
+          setGate("login");
+          return;
+        }
+        setCaptchaSiteKey(data.siteKey ?? null);
+        setGate("captcha");
+      })
+      .catch(() => {
+        if (!cancelled) setGate("login");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [stepParam]);
+
+  useEffect(() => {
+    if (stepParam !== "mfa" || gate !== "login") return;
 
     let cancelled = false;
     setStep("mfa");
@@ -121,7 +152,7 @@ export default function AdminLogin() {
     return () => {
       cancelled = true;
     };
-  }, [stepParam]);
+  }, [stepParam, gate]);
 
   function valuesFromForm(
     values: LoginValues,
@@ -170,6 +201,7 @@ export default function AdminLogin() {
 
       const data = (await res.json()) as {
         error?: string;
+        code?: string;
         enrollmentRequired?: boolean;
         mfaRequired?: boolean;
         factorId?: string;
@@ -178,6 +210,15 @@ export default function AdminLogin() {
 
       if (!res.ok) {
         form.clearErrors();
+        if (data.code === "CAPTCHA_REQUIRED") {
+          setGate("captcha");
+          void fetch("/api/admin/captcha/status", { credentials: "include" })
+            .then(async (r) => {
+              const status = (await r.json()) as { siteKey?: string | null };
+              setCaptchaSiteKey(status.siteKey ?? null);
+            })
+            .catch(() => undefined);
+        }
         setError(data.error ?? "Unable to sign in. Please try again.");
         return;
       }
@@ -256,16 +297,44 @@ export default function AdminLogin() {
         <Card className="border-border shadow-md">
           <CardHeader className="space-y-1 pb-4 text-center">
             <CardTitle className="font-serif text-2xl">
-              {step === "mfa" ? "Authenticator code" : "Welcome back"}
+              {gate === "captcha"
+                ? "Security Check"
+                : step === "mfa"
+                  ? "Authenticator code"
+                  : "Welcome back"}
             </CardTitle>
             <CardDescription className="text-balance">
-              {step === "mfa"
-                ? "Enter the 6-digit code from your authenticator app."
-                : "Sign in to manage articles, ads, and team settings."}
+              {gate === "captcha"
+                ? "Confirm you are human before continuing to staff sign-in."
+                : step === "mfa"
+                  ? "Enter the 6-digit code from your authenticator app."
+                  : "Sign in to manage articles, ads, and team settings."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {step === "mfa" ? (
+            {gate === "checking" ? (
+              <p className="text-center text-sm text-muted-foreground flex items-center justify-center gap-2 py-8">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading…
+              </p>
+            ) : gate === "captcha" ? (
+              captchaSiteKey ? (
+                <AdminLoginCaptcha
+                  siteKey={captchaSiteKey}
+                  onVerified={() => {
+                    setError(null);
+                    setGate("login");
+                  }}
+                />
+              ) : (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    Captcha is not configured. Add Turnstile keys to your environment
+                    or contact your administrator.
+                  </AlertDescription>
+                </Alert>
+              )
+            ) : step === "mfa" ? (
               <div className="space-y-4">
                 {error ? (
                   <Alert variant="destructive">

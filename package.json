@@ -2,9 +2,9 @@
   "name": "@workspace/palawan-daily-news",
   "version": "0.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\" && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
