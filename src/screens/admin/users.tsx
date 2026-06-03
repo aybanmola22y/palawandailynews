@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useUsers, UserRole, type AdminUser } from "@/store/users-context";
-import { useArticles } from "@/store/articles-context";
 import { adminToast } from "@/lib/admin-toast";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
 import { Search, ExternalLink, ShieldCheck, ShieldAlert } from "lucide-react";
@@ -67,7 +66,6 @@ function userToForm(user: AdminUser): FormState {
 export default function AdminUsers() {
   const { users, loading, error, refreshUsers, addUser, updateUser, deleteUser } =
     useUsers();
-  const { articles } = useArticles();
   const [saving, setSaving] = useState(false);
 
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
@@ -76,14 +74,6 @@ export default function AdminUsers() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"All Roles" | UserRole>("All Roles");
-
-  const articlesByAuthor = useMemo(() => {
-    const map: Record<string, number> = {};
-    articles.forEach((a) => {
-      if (a.author) map[a.author] = (map[a.author] ?? 0) + 1;
-    });
-    return map;
-  }, [articles]);
 
   const roleCounts = useMemo(() => {
     const counts: Record<UserRole, number> = {
@@ -298,9 +288,6 @@ export default function AdminUsers() {
                     Role
                   </th>
                   <th className="px-5 py-3 font-bold uppercase tracking-widest text-[11px] text-muted-foreground">
-                    Articles
-                  </th>
-                  <th className="px-5 py-3 font-bold uppercase tracking-widest text-[11px] text-muted-foreground">
                     Activity
                   </th>
                   <th className="px-5 py-3 font-bold uppercase tracking-widest text-[11px] text-muted-foreground">
@@ -314,16 +301,14 @@ export default function AdminUsers() {
               <tbody className="divide-y divide-border">
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
+                    <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
                       {loading
                         ? "Loading users from Supabase…"
                         : "No users match your filters."}
                     </td>
                   </tr>
                 )}
-                {filtered.map((user) => {
-                  const articleCount = articlesByAuthor[user.name] ?? 0;
-                  return (
+                {filtered.map((user) => (
                     <tr
                       key={user.id}
                       className="hover:bg-[#FAFAF8] dark:hover:bg-[#111111] transition-colors"
@@ -354,14 +339,6 @@ export default function AdminUsers() {
                         </span>
                         <p className="text-[11px] text-muted-foreground mt-2 max-w-[180px] leading-snug">
                           {ROLE_INFO[user.role].description}
-                        </p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="font-serif text-[22px] font-bold text-foreground">
-                          {articleCount}
-                        </span>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          published
                         </p>
                       </td>
                       <td className="px-5 py-4">
@@ -406,8 +383,7 @@ export default function AdminUsers() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>

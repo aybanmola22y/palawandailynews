@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
-import { getVerifiedTotpFactor } from "@/lib/admin-mfa";
+import { getAdminMfaTotpIssuer, getVerifiedTotpFactor } from "@/lib/admin-mfa";
 import { createServerSupabaseClient } from "@/lib/supabase/ssr-server";
 
 export async function GET() {
@@ -24,8 +24,14 @@ export async function GET() {
     enrolled: Boolean(verified),
     factorId: verified?.id ?? null,
     friendlyName: verified?.friendly_name ?? null,
+    factorCreatedAt: verified?.created_at ?? null,
+    factorUpdatedAt: verified?.updated_at ?? null,
+    issuer: getAdminMfaTotpIssuer(),
     currentLevel: aal?.currentLevel ?? null,
     nextLevel: aal?.nextLevel ?? null,
+    sessionAtAal2: aal?.currentLevel === "aal2",
+    needsChallenge:
+      aal?.nextLevel === "aal2" && aal?.currentLevel !== "aal2",
     canEnroll: !verified,
   });
 }
