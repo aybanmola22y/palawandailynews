@@ -4,7 +4,8 @@ import type { Database } from "@/lib/supabase/database.types";
 import { fetchPublishedSummaries } from "@/lib/articles/fetch-published-summaries";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 
-export const dynamic = "force-dynamic";
+/** CDN/browser cache — revalidated on CMS publish via revalidatePath. */
+export const revalidate = 120;
 
 function getAnonServerClient() {
   const url = getSupabaseUrl();
@@ -38,7 +39,7 @@ export async function GET() {
 
     return NextResponse.json(articles, {
       headers: {
-        "Cache-Control": "private, no-store, max-age=0",
+        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
       },
     });
   } catch (err) {

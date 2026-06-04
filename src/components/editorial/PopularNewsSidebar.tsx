@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EditorialImage } from "@/components/editorial/EditorialImage";
 import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { ArticleBylineMeta } from "@/components/editorial/ArticleByline";
 import type { Article } from "@/store/articles-context";
@@ -39,6 +40,7 @@ export function PopularNewsSidebar({
           <div className={cn("flex gap-4", wide ? "sm:gap-5" : "items-start sm:gap-5")}>
             <Link
               href={`/article/${article.id}`}
+              prefetch={false}
               className={cn(
                 "group image-zoom block shrink-0 overflow-hidden rounded-sm bg-background",
                 wide
@@ -46,18 +48,15 @@ export function PopularNewsSidebar({
                   : "flex aspect-4/3 w-[108px] items-center justify-center border border-border sm:w-[120px]",
               )}
             >
-              {isUsableSidebarImage(article.image) ? (
-                <img
-                  src={article.image}
+              <div className="relative h-full w-full">
+                <EditorialImage
+                  src={isUsableSidebarImage(article.image) ? article.image : undefined}
                   alt=""
-                  className="h-full w-full bg-background object-contain"
+                  fill
+                  sizes="200px"
+                  fit="contain"
                 />
-              ) : (
-                <div
-                  className="h-full w-full bg-linear-to-br from-[#111111] via-[#5c1828] to-[#C41E3A]"
-                  aria-hidden
-                />
-              )}
+              </div>
             </Link>
             <div
               className={cn(
@@ -65,7 +64,7 @@ export function PopularNewsSidebar({
                 wide ? "justify-center" : "justify-center",
               )}
             >
-              <Link href={`/article/${article.id}`} className="group block">
+              <Link href={`/article/${article.id}`} prefetch={false} className="group block">
                 {article.category ? (
                   <SectionLabel className="mb-1">{article.category}</SectionLabel>
                 ) : null}

@@ -1,3 +1,4 @@
+import { EditorialImage } from "@/components/editorial/EditorialImage";
 import type { Article } from "@/store/articles-context";
 import { cn } from "@/lib/utils";
 
@@ -29,12 +30,14 @@ export function ArticleCardImage({
   if (!usePlaceholder) {
     return (
       <div className={cn("relative overflow-hidden bg-background", className)}>
-        <img
+        <EditorialImage
           src={article.image}
           alt=""
+          fill
+          fit={fit}
+          sizes="(max-width: 768px) 100vw, 400px"
           className={cn(
-            "h-full w-full transition-transform duration-500 group-hover:scale-[1.03]",
-            fit === "contain" ? "object-contain" : "object-cover",
+            "transition-transform duration-500 group-hover:scale-[1.03]",
             imgClassName,
           )}
         />

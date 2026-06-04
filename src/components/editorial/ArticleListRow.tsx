@@ -69,13 +69,14 @@ export function ArticleListRow({
   return (
     <article
       className={cn(
-        "group grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8 lg:grid-cols-[240px_minmax(0,1fr)]",
+        "scroll-perf-item group grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)] md:gap-8 lg:grid-cols-[240px_minmax(0,1fr)]",
         alignBylineWithImageEnd ? "items-start md:items-stretch" : "items-start",
         className,
       )}
     >
       <Link
         href={`/article/${article.id}`}
+        prefetch={false}
         className="image-zoom flex aspect-4/3 w-full items-center justify-center self-start overflow-hidden rounded-sm border border-border bg-background md:aspect-3/2 md:w-full"
       >
         <ArticleListImage src={article.image} alt={article.title} />
@@ -92,7 +93,7 @@ export function ArticleListRow({
         <div className="min-w-0">
           <SectionLabel className="mb-2">{article.category}</SectionLabel>
 
-          <Link href={`/article/${article.id}`} className="block w-full">
+          <Link href={`/article/${article.id}`} prefetch={false} className="block w-full">
             <h2
               className={cn(
                 "w-full font-serif text-2xl leading-snug line-clamp-2 text-pretty transition-colors group-hover:text-primary lg:text-[1.6rem]",

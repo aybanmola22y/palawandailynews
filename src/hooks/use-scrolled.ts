@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getScrollTop, subscribeScroll } from "@/lib/smooth-scroll";
 
 export function useScrolled(threshold = 12) {
   const [scrolled, setScrolled] = useState(false);
@@ -8,7 +9,7 @@ export function useScrolled(threshold = 12) {
 
     const commit = () => {
       rafId = 0;
-      setScrolled(window.scrollY > threshold);
+      setScrolled(getScrollTop() > threshold);
     };
 
     const onScroll = () => {
@@ -17,10 +18,10 @@ export function useScrolled(threshold = 12) {
     };
 
     commit();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const unsubscribe = subscribeScroll(onScroll);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      unsubscribe();
       if (rafId) cancelAnimationFrame(rafId);
     };
   }, [threshold]);

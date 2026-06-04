@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { fetchAdsFromSupabase } from "@/lib/ads/fetch-ads";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
+export const revalidate = 300;
+
 export async function GET() {
   const service = getSupabaseServiceClient();
   if (!service) {
@@ -14,7 +16,9 @@ export async function GET() {
   try {
     const ads = await fetchAdsFromSupabase(service);
     return NextResponse.json(ads, {
-      headers: { "Cache-Control": "no-store" },
+      headers: {
+        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      },
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to load ads";

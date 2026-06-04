@@ -1,5 +1,5 @@
 import Link from "next/link";
-
+import { EditorialImage } from "@/components/editorial/EditorialImage";
 import type { Article } from "@/store/articles-context";
 
 import { formatAuthorDisplayName } from "@/lib/author-profile";
@@ -54,17 +54,14 @@ function StoryImage({
     <div className={cn("relative shrink-0 overflow-hidden bg-background border-b border-border", className)}>
 
       {article.image ? (
-
-        <img
-
+        <EditorialImage
           src={article.image}
-
           alt=""
-
-          className="h-full w-full object-contain bg-background transition-transform duration-500 group-hover:scale-[1.02]"
-
+          fill
+          sizes="(max-width: 1024px) 100vw, 400px"
+          fit="contain"
+          className="transition-transform duration-500 group-hover:scale-[1.02]"
         />
-
       ) : (
 
         <div
@@ -218,7 +215,7 @@ export function AuthorStoryFeatured({
     <Link
 
       href={`/article/${article.id}`}
-
+      prefetch={false}
       className="editorial-card group flex flex-col overflow-hidden p-0 lg:flex-row"
 
     >
@@ -286,9 +283,8 @@ export function AuthorStoryCard({
     <Link
 
       href={`/article/${article.id}`}
-
+      prefetch={false}
       className={cn(
-
         "editorial-card group flex h-full flex-col overflow-hidden p-0",
 
         className,

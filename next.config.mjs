@@ -52,13 +52,6 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: mediaHost, pathname: "/**" },
-      { protocol: "https", hostname: "palawandailynews.com", pathname: "/**" },
-      { protocol: "https", hostname: "www.palawandailynews.com", pathname: "/**" },
-    ],
-  },
   basePath: process.env.BASE_PATH
     ? process.env.BASE_PATH.replace(/\/$/, "")
     : undefined,
@@ -67,6 +60,16 @@ const nextConfig = {
       dynamic: 300,
       static: 600,
     },
+    optimizePackageImports: ["lucide-react", "date-fns", "recharts"],
+  },
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: mediaHost, pathname: "/**" },
+      { protocol: "https", hostname: "palawandailynews.com", pathname: "/**" },
+      { protocol: "https", hostname: "www.palawandailynews.com", pathname: "/**" },
+    ],
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 86400,
   },
   async headers() {
     return [

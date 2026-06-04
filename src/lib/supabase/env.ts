@@ -14,10 +14,13 @@ export function isSupabaseServiceConfigured(): boolean {
   return Boolean(getSupabaseUrl() && process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
 }
 
-/** Optional Hostinger/CDN prefix for relative image paths in imports. */
-export function getMediaBaseUrl(): string | null {
-  const base = process.env.NEXT_PUBLIC_MEDIA_BASE_URL?.trim();
-  return base ? base.replace(/\/$/, "") : null;
+const DEFAULT_MEDIA_BASE = "https://palawandailynews.com";
+
+/** Hostinger / site root for relative image paths (imports, featured images). */
+export function getMediaBaseUrl(): string {
+  const base =
+    process.env.NEXT_PUBLIC_MEDIA_BASE_URL?.trim() || DEFAULT_MEDIA_BASE;
+  return base.replace(/\/$/, "");
 }
 
 export const SUPABASE_NOT_CONFIGURED_MSG =

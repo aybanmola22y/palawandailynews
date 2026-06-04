@@ -25,7 +25,6 @@ export async function loadPublicSummariesFull(): Promise<Article[]> {
     const res = await fetch(API_PATH, {
       method: "GET",
       credentials: "same-origin",
-      cache: "no-store",
     });
     if (res.ok) {
       const data = (await res.json()) as Article[];

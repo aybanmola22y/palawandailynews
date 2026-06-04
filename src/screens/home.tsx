@@ -2,8 +2,8 @@
 
 import { legalNotices } from "@/data/legal";
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { useMemo } from "react";
+import { EditorialImage } from "@/components/editorial/EditorialImage";
 import { HeaderAdBanner } from "@/components/ads/HeaderAdBanner";
 import { HomepageMidBanner } from "@/components/ads/HomepageMidBanner";
 import { HomepageLatestNewsSidebarAd } from "@/components/ads/HomepageLatestNewsSidebarAd";
@@ -47,17 +47,12 @@ export default function Home() {
   const ready = published.length > 0;
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: ready ? 0.2 : 0 }}
-      className="min-h-screen pt-[76px]"
-    >
+    <div className="min-h-screen pt-[76px]">
       <HeaderAdBanner />
       <div className="editorial-container py-8 md:py-12">
         {!ready && loading && (
           <div className="mb-8 animate-pulse space-y-6" aria-hidden>
-            <div className="aspect-[3/2] max-w-3xl rounded-sm bg-muted" />
+            <div className="aspect-3/2 max-w-3xl rounded-sm bg-muted" />
             <div className="h-10 max-w-2xl rounded-sm bg-muted" />
             <div className="h-4 max-w-xl rounded-sm bg-muted/80" />
           </div>
@@ -73,17 +68,16 @@ export default function Home() {
             {/* Hero */}
             <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 mb-4">
           <div className="lg:col-span-7 flex flex-col">
-            <Link href={`/article/${featured.id}`} className="group block">
-              <div className="image-zoom relative mb-5 aspect-[3/2] overflow-hidden rounded-sm bg-background">
-                {featured.image ? (
-                  <img
-                    src={featured.image}
-                    alt={featured.title}
-                    className="w-full h-full object-contain bg-background"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-linear-to-br from-[#111111] via-[#5c1828] to-[#C41E3A]" />
-                )}
+            <Link href={`/article/${featured.id}`} prefetch={false} className="group block">
+              <div className="image-zoom relative mb-5 aspect-3/2 overflow-hidden rounded-sm bg-background">
+                <EditorialImage
+                  src={featured.image}
+                  alt={featured.title}
+                  fill
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 58vw"
+                  fit="contain"
+                />
               </div>
               <SectionLabel>{featured.category}</SectionLabel>
               <h1 className="font-serif text-3xl md:text-[2.75rem] lg:text-5xl leading-[1.08] mt-2 mb-4">
@@ -205,6 +199,6 @@ export default function Home() {
           </div>
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

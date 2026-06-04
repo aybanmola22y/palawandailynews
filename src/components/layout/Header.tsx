@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { SiteLogo } from "@/components/layout/SiteLogo";
 import { usePathname } from "next/navigation";
-import { Search, Moon, Sun, Menu, X } from "lucide-react";
+import { Search, Moon, Sun } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "@/hooks/use-theme";
 import { useScrolled } from "@/hooks/use-scrolled";
+import { setScrollPaused } from "@/lib/smooth-scroll";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -19,6 +21,34 @@ const NAV_ITEMS = [
   { label: "About", path: "/about" },
 ];
 
+function AnimatedMenuIcon({ open }: { open: boolean }) {
+  return (
+    <div
+      className="relative flex h-[22px] w-[22px] flex-col items-center justify-center"
+      aria-hidden
+    >
+      <span
+        className={cn(
+          "absolute block h-[2px] w-[22px] rounded-full bg-current transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          open ? "translate-y-0 rotate-45" : "-translate-y-7px",
+        )}
+      />
+      <span
+        className={cn(
+          "absolute block h-[2px] w-[22px] rounded-full bg-current transition-all duration-200 ease-out",
+          open ? "scale-x-0 opacity-0" : "scale-x-100 opacity-100",
+        )}
+      />
+      <span
+        className={cn(
+          "absolute block h-[2px] w-[22px] rounded-full bg-current transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+          open ? "translate-y-0 -rotate-45" : "translate-y-[7px]",
+        )}
+      />
+    </div>
+  );
+}
+
 export function Header() {
   const location = usePathname();
   const { theme, toggleTheme } = useTheme();
@@ -29,11 +59,15 @@ export function Header() {
     setMobileMenuOpen(false);
   }, [location]);
 
+  useEffect(() => {
+    setScrollPaused(mobileMenuOpen);
+  }, [mobileMenuOpen]);
+
   return (
     <>
       <header
         className={cn(
-          "fixed top-0 left-0 right-0 z-40 transition-all duration-300",
+          "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
           scrolled
             ? "bg-background/90 backdrop-blur-md border-b border-border shadow-sm"
             : "bg-background border-b border-border",
@@ -65,7 +99,7 @@ export function Header() {
                   key={item.path}
                   href={item.path}
                   className={cn(
-                    "relative px-3.5 py-2.5 text-[12px] uppercase tracking-[0.1em] font-semibold rounded-sm transition-colors",
+                    "relative px-3.5 py-2.5 text-[12px] uppercase tracking-widest font-semibold rounded-sm transition-colors",
                     isActive
                       ? "text-primary"
                       : "text-muted-foreground hover:text-foreground hover:bg-secondary/80",
@@ -103,12 +137,14 @@ export function Header() {
               )}
             </button>
             <button
+              type="button"
               className="md:hidden w-10 h-10 flex items-center justify-center rounded-sm text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open menu"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileMenuOpen}
               data-testid="button-mobile-menu"
             >
-              <Menu className="w-[22px] h-[22px]" />
+              <AnimatedMenuIcon open={mobileMenuOpen} />
             </button>
           </div>
         </div>
@@ -116,53 +152,66 @@ export function Header() {
 
       <div className="h-[77px]" />
 
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-background flex flex-col"
-          data-testid="mobile-menu-drawer"
-        >
-          <div className="h-[77px] flex items-center justify-between px-6 border-b border-border">
-            <Link
-              href="/"
-              className="block shrink-0"
-              data-testid="link-mobile-home"
-            >
-              <SiteLogo className="h-8 max-w-[200px] sm:max-w-[220px]" />
-            </Link>
-            <button
+      <AnimatePresence>
+        {mobileMenuOpen ? (
+          <>
+            <motion.button
+              type="button"
+              aria-label="Close menu"
+              data-lenis-prevent
+              className="fixed inset-0 top-[77px] z-40 bg-black/50 md:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
               onClick={() => setMobileMenuOpen(false)}
-              className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-secondary"
-              data-testid="button-close-menu"
+            />
+            <motion.nav
+              data-lenis-prevent
+              className="fixed left-0 right-0 top-[77px] bottom-0 z-40 flex flex-col overflow-y-auto border-t border-border bg-background p-2 md:hidden"
+              aria-label="Mobile navigation"
+              data-testid="mobile-menu-drawer"
+              initial={{ opacity: 0, y: -16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
             >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <nav className="flex flex-col flex-1 overflow-y-auto p-2">
-            {NAV_ITEMS.map((item) => {
-              const isActive = location === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={cn(
-                    "flex items-center justify-between mx-2 px-4 py-4 rounded-sm text-[12px] uppercase tracking-[0.1em] font-semibold transition-colors",
-                    isActive
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary",
-                  )}
-                  data-testid={`link-mobile-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-                >
-                  {item.label}
-                  {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      )}
+              {NAV_ITEMS.map((item, index) => {
+                const isActive = location === item.path;
+                return (
+                  <motion.div
+                    key={item.path}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -12 }}
+                    transition={{
+                      duration: 0.28,
+                      delay: index * 0.045,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                  >
+                    <Link
+                      href={item.path}
+                      className={cn(
+                        "flex items-center justify-between mx-2 px-4 py-4 rounded-sm text-widest uppercase tracking-widest font-semibold transition-colors",
+                        isActive
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                      )}
+                      data-testid={`link-mobile-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
+                    >
+                      {item.label}
+                      {isActive ? (
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                      ) : null}
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.nav>
+          </>
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

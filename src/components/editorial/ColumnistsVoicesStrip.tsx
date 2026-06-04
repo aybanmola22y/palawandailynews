@@ -210,6 +210,7 @@ export function ColumnistsVoicesStrip({
       <ColumnistsHeader id={headingId} count={voices.length} compact={isSidebar} />
 
       <div
+        data-lenis-prevent={showAll && hasMore && isSidebar ? true : undefined}
         className={cn(
           gridClass,
           showAll &&

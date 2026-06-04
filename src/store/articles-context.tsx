@@ -20,6 +20,7 @@ import {
   writeArticlesCache,
 } from "@/lib/articles/articles-cache";
 import { dedupeArticlesById } from "@/lib/articles/dedupe-articles";
+import { withResolvedArticleImages } from "@/lib/articles/map-article-row";
 import {
   loadAdminSummariesBootstrap,
   loadAdminSummariesFull,
@@ -120,7 +121,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
 
     const cached = readArticlesCache();
     if (cached?.length && mounted.current) {
-      setArticles(dedupeArticlesById(cached));
+      setArticles(dedupeArticlesById(withResolvedArticleImages(cached)));
       setLoading(false);
     } else if (mounted.current) {
       setLoading(true);

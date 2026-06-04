@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { resolveImageUrl } from "@/lib/articles/map-article-row";
 import {
   decodeStoredHtml,
   excerptToPlainText,
@@ -513,9 +514,17 @@ export function prepareArticleBody(content: string, excerpt?: string): string {
 }
 
 function sanitizeArticleHtml(html: string) {
-  return html
+  let out = html
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "");
+
+  out = out.replace(
+    /(<img\b[^>]*\bsrc=["'])([^"']+)(["'])/gi,
+    (_match, pre: string, src: string, post: string) =>
+      `${pre}${resolveImageUrl(src)}${post}`,
+  );
+
+  return out;
 }
 
 const HTML_CONTENT_CLASS =
@@ -551,7 +560,7 @@ function renderBlock(block: string, key: number) {
     return (
       <figure key={key} className="my-8">
         <img
-          src={imgMatch[2]}
+          src={resolveImageUrl(imgMatch[2])}
           alt={imgMatch[1]}
           className="w-full object-cover"
           onError={(e) => {

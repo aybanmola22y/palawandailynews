@@ -82,6 +82,40 @@ export type ArticleInsertRow = Omit<ArticleRow, "created_at" | "updated_at"> & {
 
 export type ArticleUpdateRow = Partial<ArticleInsertRow>;
 
+export type ArticleBackupSource = "seed" | "create";
+
+/** Snapshot of one article in `article_backups` (one row per article id). */
+export type ArticleBackupRow = {
+  id: string;
+  title: string;
+  excerpt: string;
+  content: string;
+  category: string;
+  author: string;
+  tags: string[];
+  date: string;
+  reading_time: string;
+  image_url: string;
+  is_breaking: boolean;
+  status: string;
+  legacy_wp_id: number | null;
+  cms_origin: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  backed_up_at: string;
+  backup_source: ArticleBackupSource;
+};
+
+export type ArticleBackupInsertRow = Omit<ArticleBackupRow, "backed_up_at"> & {
+  backed_up_at?: string;
+};
+
+export type ArticleBackupMetaRow = {
+  id: number;
+  last_backup_at: string | null;
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -89,6 +123,18 @@ export type Database = {
         Row: ArticleRow;
         Insert: ArticleInsertRow;
         Update: ArticleUpdateRow;
+        Relationships: [];
+      };
+      article_backups: {
+        Row: ArticleBackupRow;
+        Insert: ArticleBackupInsertRow;
+        Update: Partial<ArticleBackupInsertRow>;
+        Relationships: [];
+      };
+      article_backup_meta: {
+        Row: ArticleBackupMetaRow;
+        Insert: ArticleBackupMetaRow;
+        Update: Partial<ArticleBackupMetaRow>;
         Relationships: [];
       };
       ads: {

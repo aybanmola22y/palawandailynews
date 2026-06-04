@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useArticles, ArticleStatus } from "@/store/articles-context";
 import { AdminStatCard } from "@/components/admin/AdminStatCard";
+import { AdminLoadingOverlay } from "@/components/admin/AdminLoadingOverlay";
+import { Spinner } from "@/components/ui/spinner";
 import { Search, ExternalLink } from "lucide-react";
 import { formatAdminDateTime } from "@/lib/admin-utils";
 import { adminToast } from "@/lib/admin-toast";
@@ -28,6 +30,7 @@ export default function AdminArticles() {
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [categoryFilter, setCategoryFilter] = useState("All Categories");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [page, setPage] = useState(1);
   const perPage = 10;
 
@@ -94,9 +97,10 @@ export default function AdminArticles() {
 
   async function handleDelete(id: string) {
     const title = articles.find((a) => a.id === id)?.title?.trim();
-    setDeleteId(null);
+    setDeleting(true);
     try {
       await deleteArticle(id);
+      setDeleteId(null);
       adminToast.success(
         "Article deleted",
         title ? `"${title}" was removed.` : "The article was removed.",
@@ -106,6 +110,8 @@ export default function AdminArticles() {
         "Could not delete article",
         err instanceof Error ? err.message : "Something went wrong.",
       );
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -404,7 +410,7 @@ export default function AdminArticles() {
       {deleteId && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-          onClick={() => setDeleteId(null)}
+          onClick={() => !deleting && setDeleteId(null)}
         >
           <div
             className="bg-white dark:bg-[#1A1A18] border border-border w-full max-w-sm p-8 flex flex-col gap-5"
@@ -417,22 +423,37 @@ export default function AdminArticles() {
             <div className="flex justify-end gap-3">
               <button
                 type="button"
+                disabled={deleting}
                 onClick={() => setDeleteId(null)}
-                className="px-5 py-2 text-[12px] font-bold uppercase tracking-widest border border-border text-muted-foreground hover:text-foreground transition-colors"
+                className="px-5 py-2 text-[12px] font-bold uppercase tracking-widest border border-border text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={() => handleDelete(deleteId)}
-                className="px-5 py-2 text-[12px] font-bold uppercase tracking-widest bg-[#C41E3A] text-white hover:bg-[#A01830] transition-colors"
+                disabled={deleting}
+                onClick={() => void handleDelete(deleteId)}
+                className="inline-flex items-center justify-center gap-2 min-w-[100px] px-5 py-2 text-[12px] font-bold uppercase tracking-widest bg-[#C41E3A] text-white hover:bg-[#A01830] transition-colors disabled:opacity-50"
               >
-                Delete
+                {deleting ? (
+                  <>
+                    <Spinner className="w-3.5 h-3.5 text-white" />
+                    Deleting…
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <AdminLoadingOverlay
+        open={deleting}
+        label="Deleting article…"
+        description="Removing the article from Supabase. Please wait…"
+      />
     </div>
   );
 }

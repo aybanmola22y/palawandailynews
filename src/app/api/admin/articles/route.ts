@@ -7,7 +7,6 @@ import {
   slugifyArticleId,
   validateArticleForPersist,
 } from "@/lib/articles/article-persist";
-
 export async function POST(request: NextRequest) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;

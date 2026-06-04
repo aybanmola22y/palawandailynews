@@ -21,13 +21,12 @@ import {
 import { getAuthorRawCandidates } from "@/lib/author-resolve";
 import { cn } from "@/lib/utils";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { ARTICLE_SUMMARY_SELECT } from "@/lib/articles/fetch-published-summaries";
 import { rowToArticle } from "@/lib/articles/map-article-row";
 import type { Article } from "@/store/articles-context";
 import { formatArticleDate } from "@/lib/site-articles";
 
 const PREVIEW_LIMIT = 5;
-const REMOTE_PAGE_SIZE = 200;
-const REMOTE_MAX_ROWS = 5000;
 
 type AuthorHoverCardProps = {
   name: string;
@@ -126,8 +125,7 @@ export function AuthorHoverCard({
     );
   }
 
-  // Show all stories in the hover card (scroll container already limits height).
-  const previewLocal = authorArticles;
+  const previewLocal = authorArticles.slice(0, PREVIEW_LIMIT);
   const effectivePreview = previewLocal.length > 0 ? previewLocal : (remotePreview ?? []);
   const totalStories = authorArticles.length > 0
     ? authorArticles.length
@@ -158,36 +156,26 @@ export function AuthorHoverCard({
         const rawCandidates = getAuthorRawCandidates(name);
         if (rawCandidates.length === 0) return;
 
-        const remoteAll: Article[] = [];
-        let totalCount: number | null = null;
+        let q = client
+          .from("articles")
+          .select(ARTICLE_SUMMARY_SELECT, { count: "exact" })
+          .in("author", rawCandidates)
+          .order("date", { ascending: false })
+          .limit(PREVIEW_LIMIT);
 
-        for (let from = 0; from < REMOTE_MAX_ROWS; from += REMOTE_PAGE_SIZE) {
-          let q = client
-            .from("articles")
-            .select("*", { count: from === 0 ? "exact" : undefined as any })
-            .in("author", rawCandidates)
-            .order("date", { ascending: false })
-            .range(from, from + REMOTE_PAGE_SIZE - 1);
-
-          if (!includeDrafts) {
-            q = q.eq("status", "Published");
-          }
-
-          const { data, error, count } = await q;
-          if (error) return;
-          if (from === 0) totalCount = count ?? null;
-
-          const page = (data ?? []).map((row) => rowToArticle(row as any));
-          remoteAll.push(...page);
-
-          if (!data || data.length < REMOTE_PAGE_SIZE) break;
+        if (!includeDrafts) {
+          q = q.eq("status", "Published");
         }
 
-        remotePreviewRef.current = remoteAll;
-        setRemotePreview(remoteAll);
+        const { data, error, count } = await q;
+        if (error) return;
+
+        const preview = (data ?? []).map((row) => rowToArticle(row as never));
+        remotePreviewRef.current = preview;
+        setRemotePreview(preview);
         remoteKeyRef.current = key;
         setRemoteKey(key);
-        const finalCount = totalCount ?? remoteAll.length;
+        const finalCount = count ?? preview.length;
         remoteTotalCountRef.current = finalCount;
         setRemoteTotalCount(finalCount);
       } finally {
@@ -262,7 +250,7 @@ export function AuthorHoverCard({
           </div>
         </div>
 
-        <div className="px-4 py-3 max-h-[240px] overflow-y-auto">
+        <div className="px-4 py-3 max-h-[240px] overflow-y-auto" data-lenis-prevent>
           {effectivePreview.length === 0 ? (
             <div className="text-[13px] text-muted-foreground py-2">
               No published articles yet.

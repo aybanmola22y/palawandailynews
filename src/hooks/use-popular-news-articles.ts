@@ -30,7 +30,7 @@ export function usePopularNewsArticles() {
 
     let cancelled = false;
 
-    void fetch("/api/articles/popular", { cache: "no-store" })
+    void fetch("/api/articles/popular")
       .then(async (res) => {
         if (!res.ok) throw new Error("Failed to load popular news");
         return (await res.json()) as Article[];

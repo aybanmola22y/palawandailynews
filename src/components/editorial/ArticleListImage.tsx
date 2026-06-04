@@ -1,25 +1,30 @@
+import { EditorialImage } from "@/components/editorial/EditorialImage";
 import { cn } from "@/lib/utils";
-
-const PLACEHOLDER_CLASS =
-  "h-full w-full bg-linear-to-br from-[#111111] via-[#5c1828] to-[#C41E3A]";
 
 type ArticleListImageProps = {
   src?: string;
   alt?: string;
   className?: string;
+  priority?: boolean;
 };
 
 /** Shows the full image inside a frame without cropping (for list/search thumbnails). */
-export function ArticleListImage({ src, alt = "", className }: ArticleListImageProps) {
-  if (!src) {
-    return <div className={cn(PLACEHOLDER_CLASS, className)} aria-hidden />;
-  }
-
+export function ArticleListImage({
+  src,
+  alt = "",
+  className,
+  priority = false,
+}: ArticleListImageProps) {
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={cn("h-full w-full object-contain bg-background", className)}
-    />
+    <div className={cn("relative h-full w-full", className)}>
+      <EditorialImage
+        src={src}
+        alt={alt}
+        fill
+        priority={priority}
+        sizes="(max-width: 768px) 100vw, 240px"
+        fit="contain"
+      />
+    </div>
   );
 }

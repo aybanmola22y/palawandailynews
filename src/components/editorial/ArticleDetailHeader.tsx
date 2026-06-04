@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { EditorialImage } from "@/components/editorial/EditorialImage";
 import { AuthorHoverCard } from "@/components/editorial/AuthorHoverCard";
 import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { cn } from "@/lib/utils";
@@ -63,11 +64,14 @@ export function ArticleDetailHeader({
       )}
 
       {image ? (
-        <div className="mb-8 overflow-hidden rounded-sm bg-background">
-          <img
+        <div className="relative mb-8 aspect-3/2 max-h-[520px] w-full overflow-hidden rounded-sm bg-background">
+          <EditorialImage
             src={image}
             alt={imageAlt}
-            className="w-full max-h-[520px] object-contain bg-background"
+            fill
+            priority
+            sizes="(max-width: 768px) 100vw, 896px"
+            fit="contain"
           />
         </div>
       ) : null}

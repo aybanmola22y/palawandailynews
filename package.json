@@ -12,7 +12,9 @@
     "import-articles": "node scripts/import-extracted.mjs",
     "import-articles:supabase": "node --env-file=.env scripts/import-from-csv.mjs",
     "import-articles:supabase:json": "node --env-file=.env scripts/import-to-supabase.mjs",
-    "seed-admin-auth": "node --env-file=.env scripts/seed-admin-auth.mjs"
+    "seed-admin-auth": "node --env-file=.env scripts/seed-admin-auth.mjs",
+    "seed-article-backups": "node --env-file=.env scripts/seed-article-backups.mjs",
+    "backup-articles:csv": "node --env-file=.env scripts/backup-articles-to-csv.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

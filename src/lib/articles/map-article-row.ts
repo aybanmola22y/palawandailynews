@@ -48,47 +48,81 @@ function normalizeStatus(value: string): ArticleStatus {
 
 const HOSTINGER_SITE_HOST = /^(https?:\/\/(?:www\.)?palawandailynews\.com)\//i;
 
+function fixPalawanSiteUrl(url: string): string {
+  const host = url.match(/^(https?:\/\/(?:www\.)?palawandailynews\.com)\//i);
+  if (!host) return url;
+
+  const [, base] = host;
+  let fixed = url;
+
+  if (fixed.startsWith("http://")) {
+    fixed = fixed.replace(/^http:/i, "https:");
+  }
+
+  // Wrong nested folder from an earlier bug: /public_html/pdn_new_website_uploads → /pdn_new_website_uploads
+  if (/\/public_html\/pdn_new_website_uploads\//i.test(fixed)) {
+    fixed = fixed.replace(
+      `${base}/public_html/pdn_new_website_uploads/`,
+      `${base}/pdn_new_website_uploads/`,
+    );
+  }
+  if (/\/public_html\/uploads\//i.test(fixed)) {
+    fixed = fixed.replace(
+      `${base}/public_html/uploads/`,
+      `${base}/pdn_new_website_uploads/`,
+    );
+  }
+
+  return fixed;
+}
+
 /** Resolve image URL — store full Hostinger URLs in Supabase; optionally prefix relative paths. */
 export function resolveImageUrl(image: string): string {
-  const trimmed = image.trim();
+  let trimmed = String(image ?? "").trim();
   if (!trimmed) return "";
 
-  if (/^https?:\/\//i.test(trimmed)) {
-    const host = trimmed.match(
-      /^(https?:\/\/(?:www\.)?palawandailynews\.com)\//i,
-    );
-    if (host) {
-      const [, base] = host;
-      // Wrong nested folder from an earlier bug: /public_html/pdn_new_website_uploads → /pdn_new_website_uploads
-      if (/\/public_html\/pdn_new_website_uploads\//i.test(trimmed)) {
-        return trimmed.replace(
-          `${base}/public_html/pdn_new_website_uploads/`,
-          `${base}/pdn_new_website_uploads/`,
-        );
-      }
-      if (/\/public_html\/uploads\//i.test(trimmed)) {
-        return trimmed.replace(
-          `${base}/public_html/uploads/`,
-          `${base}/pdn_new_website_uploads/`,
-        );
-      }
-    }
+  // Local draft previews (admin editor) — do not rewrite to Hostinger base URL.
+  if (/^(blob:|data:)/i.test(trimmed)) {
     return trimmed;
   }
 
+  if (trimmed.startsWith("//")) {
+    trimmed = `https:${trimmed}`;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    return fixPalawanSiteUrl(trimmed);
+  }
+
   const base = getMediaBaseUrl();
-  if (!base) return trimmed;
   const normalized = trimmed.replace(/^\//, "");
+
   if (normalized.startsWith("public_html/pdn_new_website_uploads/")) {
-    return `${base.replace(/\/$/, "")}/${normalized.replace(/^public_html\//, "")}`;
+    return `${base}/${normalized.replace(/^public_html\//, "")}`;
+  }
+  if (normalized.startsWith("public_html/uploads/")) {
+    return `${base}/${normalized.replace(/^public_html\/uploads\//, "pdn_new_website_uploads/")}`;
+  }
+  if (normalized.startsWith("wp-content/uploads/")) {
+    return `${base}/${normalized}`;
   }
   if (
-    normalized.startsWith("pdn_new_website_uploads/") &&
+    normalized.startsWith("pdn_new_website_uploads/") ||
     HOSTINGER_SITE_HOST.test(base)
   ) {
-    return `${base.replace(/\/$/, "")}/${normalized}`;
+    return `${base}/${normalized}`;
   }
   return `${base}/${normalized}`;
+}
+
+/** Re-apply URL rules (e.g. after loading from localStorage cache). */
+export function withResolvedArticleImages<T extends { image?: string }>(
+  articles: T[],
+): T[] {
+  return articles.map((article) => ({
+    ...article,
+    image: article.image ? resolveImageUrl(article.image) : "",
+  }));
 }
 
 export function articleToRow(article: Article): ArticleInsertRow {

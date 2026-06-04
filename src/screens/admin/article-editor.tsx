@@ -20,6 +20,9 @@ import {
 } from "@/components/admin/HtmlBodyEditor";
 import { ArticleDetailHeader } from "@/components/editorial/ArticleDetailHeader";
 import { ArticleTags } from "@/components/editorial/ArticleTags";
+import { ArticleTagsInput } from "@/components/admin/ArticleTagsInput";
+import { AdminLoadingOverlay } from "@/components/admin/AdminLoadingOverlay";
+import { Spinner } from "@/components/ui/spinner";
 import { formatArticleDate } from "@/lib/site-articles";
 import { getArticleAuthorOptions } from "@/lib/article-authors";
 import {
@@ -46,6 +49,25 @@ function containsBlobImage(value: string): boolean {
 }
 
 const STATUSES: ArticleStatus[] = ["Published", "Draft", "Review"];
+
+type SaveAction = "draft" | "publish" | "update";
+
+function saveOverlayCopy(
+  action: SaveAction,
+  hasUploads: boolean,
+): { label: string; description: string } {
+  const description = hasUploads
+    ? "Uploading images to Hostinger and saving your article. This may take a moment."
+    : "Saving your article to the database. Please wait…";
+
+  if (action === "draft") {
+    return { label: "Saving draft…", description };
+  }
+  if (action === "publish") {
+    return { label: "Publishing…", description };
+  }
+  return { label: "Updating article…", description };
+}
 
 const emptyForm = (): Omit<Article, "id"> => ({
   title: "",
@@ -95,6 +117,7 @@ export default function ArticleEditor() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingAction, setSavingAction] = useState<SaveAction | null>(null);
   const [cmsWritable, setCmsWritable] = useState<boolean | null>(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [editorMode, setEditorMode] = useState<"write" | "preview">("write");
@@ -317,6 +340,12 @@ export default function ArticleEditor() {
       return;
     }
 
+    const action: SaveAction =
+      status === "Draft" ? "draft" : isEdit ? "update" : "publish";
+    const hasUploads =
+      Boolean(pendingHeroFile) || pendingFilesRef.current.size > 0;
+
+    setSavingAction(action);
     setSaving(true);
     try {
       const { heroImage, contentHtml } = await publishArticleImages({
@@ -383,8 +412,17 @@ export default function ArticleEditor() {
       adminToast.error("Could not save article", message);
     } finally {
       setSaving(false);
+      setSavingAction(null);
     }
   }
+
+  const saveOverlay =
+    saving && savingAction
+      ? saveOverlayCopy(
+          savingAction,
+          Boolean(pendingHeroFile) || pendingFilesRef.current.size > 0,
+        )
+      : null;
 
   const statsSource = plainTextFromHtml(bodyHtml);
   const chars = statsSource.length;
@@ -439,19 +477,33 @@ export default function ArticleEditor() {
             type="button"
             disabled={saving}
             onClick={() => handleSave("Draft")}
-            className="flex items-center gap-2 px-5 py-2.5 border border-border text-[11px] font-bold uppercase tracking-widest hover:bg-muted transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 border border-border text-[11px] font-bold uppercase tracking-widest hover:bg-muted transition-colors disabled:opacity-50 min-w-[130px] justify-center"
           >
-            <Save className="w-3.5 h-3.5" />
-            Save Draft
+            {saving && savingAction === "draft" ? (
+              <Spinner className="w-3.5 h-3.5" />
+            ) : (
+              <Save className="w-3.5 h-3.5" />
+            )}
+            {saving && savingAction === "draft" ? "Saving…" : "Save Draft"}
           </button>
           <button
             type="button"
             disabled={saving}
             onClick={() => handleSave(form.status || "Published")}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#C41E3A] text-white text-[11px] font-bold uppercase tracking-widest hover:bg-[#A01830] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#C41E3A] text-white text-[11px] font-bold uppercase tracking-widest hover:bg-[#A01830] transition-colors disabled:opacity-50 min-w-[130px] justify-center"
           >
-            <Send className="w-3.5 h-3.5" />
-            {isEdit ? "Update" : "Publish"}
+            {saving && (savingAction === "publish" || savingAction === "update") ? (
+              <Spinner className="w-3.5 h-3.5 text-white" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            {saving && savingAction === "publish"
+              ? "Publishing…"
+              : saving && savingAction === "update"
+                ? "Updating…"
+                : isEdit
+                  ? "Update"
+                  : "Publish"}
           </button>
         </div>
       </div>
@@ -494,8 +546,8 @@ export default function ArticleEditor() {
               value={form.excerpt}
               onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
               placeholder="Write a short summary for article listings and previews..."
-              rows={2}
-              className="w-full text-[15px] leading-relaxed bg-[#F7F7F5] dark:bg-[#111111] border border-border focus:border-foreground outline-none resize-none text-foreground placeholder:text-muted-foreground/40 px-4 py-3 transition-colors"
+              rows={5}
+              className="w-full min-h-[140px] text-[15px] leading-relaxed bg-[#F7F7F5] dark:bg-[#111111] border border-border focus:border-foreground outline-none resize-y text-foreground placeholder:text-muted-foreground/40 px-4 py-3 transition-colors"
             />
           </div>
 
@@ -773,26 +825,11 @@ export default function ArticleEditor() {
                   </p>
                 ) : null}
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
-                  Tags
-                </label>
-                <input
-                  value={form.tags.join(", ")}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      tags: e.target.value
-                        .split(",")
-                        .map((t) => t.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="comma, separated, tags"
-                  className="input"
-                />
-                <ArticleTags tags={form.tags} static variant="inline" />
-              </div>
+              <ArticleTagsInput
+                key={articleId || "new"}
+                tags={form.tags}
+                onChange={(tags) => setForm((f) => ({ ...f, tags }))}
+              />
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
                   Date
@@ -919,6 +956,12 @@ export default function ArticleEditor() {
           </section>
         </aside>
       </div>
+
+      <AdminLoadingOverlay
+        open={Boolean(saveOverlay)}
+        label={saveOverlay?.label ?? "Saving…"}
+        description={saveOverlay?.description}
+      />
     </div>
   );
 }

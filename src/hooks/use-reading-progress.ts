@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
+import { getScrollTop, subscribeScroll } from "@/lib/smooth-scroll";
 
 function readProgress() {
   const scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
   if (scrollHeight <= 0) return 0;
-  return Math.min(100, Math.max(0, (window.scrollY / scrollHeight) * 100));
+  return Math.min(100, Math.max(0, (getScrollTop() / scrollHeight) * 100));
 }
 
 export function useReadingProgress() {
@@ -23,11 +24,11 @@ export function useReadingProgress() {
     };
 
     commit();
-    window.addEventListener("scroll", onScroll, { passive: true });
+    const unsubscribe = subscribeScroll(onScroll);
     window.addEventListener("resize", onScroll, { passive: true });
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      unsubscribe();
       window.removeEventListener("resize", onScroll);
       if (rafId) cancelAnimationFrame(rafId);
     };

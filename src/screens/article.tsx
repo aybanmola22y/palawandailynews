@@ -55,6 +55,7 @@ function ArticleSidebarItem({
       <div className="flex items-start gap-5">
         <Link
           href={`/article/${article.id}`}
+          prefetch={false}
           className="group image-zoom flex w-[100px] shrink-0 aspect-4/3 items-center justify-center overflow-hidden rounded-sm border border-border bg-background"
         >
           <ArticleListImage
@@ -71,7 +72,7 @@ function ArticleSidebarItem({
           {article.category ? (
             <SectionLabel className="leading-snug">{article.category}</SectionLabel>
           ) : null}
-          <Link href={`/article/${article.id}`} className="group block">
+          <Link href={`/article/${article.id}`} prefetch={false} className="group block">
             <p className="font-serif text-[16px] leading-[1.45] text-foreground line-clamp-3 group-hover:text-primary transition-colors">
               {article.title}
             </p>
@@ -79,7 +80,7 @@ function ArticleSidebarItem({
           <ArticleBylineMeta
             author={article.author}
             date={article.date}
-            className="!mt-0 whitespace-nowrap tracking-[0.08em]"
+            className="mt-0! whitespace-nowrap tracking-[0.08em]"
           />
         </div>
       </div>
