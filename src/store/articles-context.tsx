@@ -16,6 +16,8 @@ import {
   ARTICLES_CACHE_BUST_KEY,
   ARTICLES_SUMMARIES_CACHE_KEY,
   clearArticlesCache,
+  isArticlesCacheComplete,
+  isArticlesCacheFresh,
   readArticlesCache,
   writeArticlesCache,
 } from "@/lib/articles/articles-cache";
@@ -29,6 +31,7 @@ import {
   loadPublicSummariesBootstrap,
   loadPublicSummariesFull,
 } from "@/lib/articles/load-public-summaries";
+import { pathnameNeedsFullArchive } from "@/lib/articles/public-archive-routes";
 import { getPublishedArticles } from "@/lib/site-articles";
 import {
   createAdminArticle,
@@ -72,6 +75,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
   const mounted = useRef(true);
   const articlesRef = useRef<Article[]>([]);
   const loadingContentIds = useRef(new Set<string>());
+  const fullArchiveLoading = useRef(false);
   const publishedArticles = useMemo(
     () => getPublishedArticles(articles),
     [articles],
@@ -80,6 +84,30 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     articlesRef.current = articles;
   }, [articles]);
+
+  const loadFullPublicArchive = useCallback(async () => {
+    if (isAdminRoute || !isSupabaseConfigured()) return;
+    if (fullArchiveLoading.current) return;
+    if (isArticlesCacheFresh() && isArticlesCacheComplete()) return;
+
+    fullArchiveLoading.current = true;
+    if (mounted.current) setArchiveLoading(true);
+
+    try {
+      const full = dedupeArticlesById(await loadPublicSummariesFull());
+      if (mounted.current) {
+        setArticles(full);
+        writeArticlesCache(full, true);
+      }
+    } catch (err) {
+      if (mounted.current) {
+        setError(err instanceof Error ? err.message : "Failed to load articles");
+      }
+    } finally {
+      fullArchiveLoading.current = false;
+      if (mounted.current) setArchiveLoading(false);
+    }
+  }, [isAdminRoute]);
 
   const refreshArticles = useCallback(async () => {
     setError(null);
@@ -119,6 +147,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const needsFullArchive = pathnameNeedsFullArchive(pathname ?? "");
     const cached = readArticlesCache();
     if (cached?.length && mounted.current) {
       setArticles(dedupeArticlesById(withResolvedArticleImages(cached)));
@@ -127,21 +156,42 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       setLoading(true);
     }
 
-    try {
-      if (!cached?.length) {
-        const bootstrap = await loadPublicSummariesBootstrap();
-        if (mounted.current && bootstrap.length) {
-          setArticles(dedupeArticlesById(bootstrap));
+    // Skip network when local cache is still fresh and satisfies the current route.
+    if (isArticlesCacheFresh() && cached?.length) {
+      if (isArticlesCacheComplete() || !needsFullArchive) {
+        if (mounted.current) {
+          setArchiveLoading(false);
           setLoading(false);
         }
+        return;
       }
+    }
 
-      if (mounted.current) setArchiveLoading(true);
-
-      const full = dedupeArticlesById(await loadPublicSummariesFull());
-      if (mounted.current) {
-        setArticles(full);
-        writeArticlesCache(full);
+    try {
+      if (!cached?.length) {
+        if (needsFullArchive) {
+          if (mounted.current) setArchiveLoading(true);
+          const full = dedupeArticlesById(await loadPublicSummariesFull());
+          if (mounted.current) {
+            setArticles(full);
+            setLoading(false);
+            writeArticlesCache(full, true);
+          }
+        } else {
+          const bootstrap = await loadPublicSummariesBootstrap();
+          if (mounted.current && bootstrap.length) {
+            setArticles(dedupeArticlesById(bootstrap));
+            setLoading(false);
+            writeArticlesCache(bootstrap, false);
+          }
+        }
+      } else if (needsFullArchive && !isArticlesCacheComplete()) {
+        if (mounted.current) setArchiveLoading(true);
+        const full = dedupeArticlesById(await loadPublicSummariesFull());
+        if (mounted.current) {
+          setArticles(full);
+          writeArticlesCache(full, true);
+        }
       }
     } catch (err) {
       if (mounted.current) {
@@ -153,7 +203,7 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
         setArchiveLoading(false);
       }
     }
-  }, [repo, isAdminRoute]);
+  }, [isAdminRoute, pathname]);
 
   const ensureArticleContent = useCallback(
     async (id: string) => {
@@ -162,15 +212,31 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       const existing = articlesRef.current.find(
         (a) => a.id.toLowerCase() === id.toLowerCase(),
       );
-      if (!isAdminRoute && existing?.content?.trim()) return;
+      if (!isAdminRoute && existing?.content?.trim()) {
+        return;
+      }
       if (loadingContentIds.current.has(id)) return;
 
       loadingContentIds.current.add(id);
       const normalizedId = id.toLowerCase();
       try {
-        const full = isAdminRoute
-          ? await fetchAdminArticle(id)
-          : await repo.getById(id);
+        let full: Article | null = null;
+
+        if (isAdminRoute) {
+          full = await fetchAdminArticle(id);
+        } else if (typeof fetch !== "undefined") {
+          const res = await fetch(`/api/articles/${encodeURIComponent(id)}`, {
+            credentials: "same-origin",
+          });
+          if (res.ok) {
+            full = (await res.json()) as Article;
+          }
+        }
+
+        if (!full && isAdminRoute) {
+          full = await repo.getById(id);
+        }
+
         if (full && mounted.current) {
           setArticles((prev) =>
             prev.map((a) =>
@@ -179,13 +245,19 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
           );
         }
       } catch {
-        /* body stays empty; article page can still show excerpt */
+        /* article page loads body via /api/articles/[id] */
       } finally {
         loadingContentIds.current.delete(id);
       }
     },
     [repo, isAdminRoute],
   );
+
+  useEffect(() => {
+    if (isAdminRoute) return;
+    if (!pathnameNeedsFullArchive(pathname ?? "")) return;
+    void loadFullPublicArchive();
+  }, [isAdminRoute, pathname, loadFullPublicArchive]);
 
   useEffect(() => {
     mounted.current = true;

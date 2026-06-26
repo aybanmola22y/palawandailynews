@@ -471,6 +471,7 @@ export function stripDuplicateExcerptFromContent(content: string, excerpt?: stri
       if (!excerptMatchesBody(excerptNorm, firstNorm)) break;
       html = html.slice(match[0].length).trimStart();
     }
+    if (!html.trim() && content.trim()) return content;
     return html;
   }
 
@@ -483,10 +484,22 @@ export function stripDuplicateExcerptFromContent(content: string, excerpt?: stri
     start += 1;
   }
   if (start > 0) {
-    return blocks.slice(start).join("\n\n");
+    const sliced = blocks.slice(start).join("\n\n");
+    if (!sliced.trim() && content.trim()) return content;
+    return sliced;
   }
 
   return content;
+}
+
+/** Prefer full body; fall back to excerpt when summaries omit `content` or imports only filled excerpt. */
+export function getEffectiveArticleContent(
+  content?: string,
+  excerpt?: string,
+): string {
+  const body = content?.trim() ?? "";
+  if (body) return body;
+  return excerpt?.trim() ?? "";
 }
 
 /**
@@ -494,9 +507,10 @@ export function stripDuplicateExcerptFromContent(content: string, excerpt?: stri
  * repeated sentences, and full-body restarts (common in WordPress opinion imports).
  */
 export function prepareArticleBody(content: string, excerpt?: string): string {
-  if (!content?.trim()) return content;
+  const effective = getEffectiveArticleContent(content, excerpt);
+  if (!effective) return "";
 
-  const original = decodeArticleContent(content);
+  const original = decodeArticleContent(effective);
   const plainExcerpt = excerpt ? excerptToPlainText(excerpt) : undefined;
   let body = stripDuplicateExcerptFromContent(original, plainExcerpt);
   body = stripExcerptPrefixOverlap(body, plainExcerpt);
@@ -504,13 +518,47 @@ export function prepareArticleBody(content: string, excerpt?: string): string {
   body = looksLikeHtml(body) ? rebuildCleanArticleHtml(body) : dedupePlainBody(body);
   body = stripLeadingConsecutiveDuplicateParagraphs(body);
 
-  if (!body.trim() && original) {
-    return looksLikeHtml(original)
+  if (!body.trim() && original.trim()) {
+    const restored = looksLikeHtml(original)
       ? rebuildCleanArticleHtml(original) || sanitizeArticleHtml(original)
       : original;
+    if (restored.trim()) return restored;
+    return original;
   }
 
   return body;
+}
+
+/** Render article body for public article pages. */
+export function renderArticleBody(
+  content?: string,
+  excerpt?: string,
+  options?: { allowExcerptFallback?: boolean },
+) {
+  const body = content?.trim() ?? "";
+  const effective =
+    body ||
+    (options?.allowExcerptFallback ? excerpt?.trim() ?? "" : "");
+
+  if (!effective) {
+    return (
+      <p className="text-muted-foreground">
+        No content has been added to this article yet.
+      </p>
+    );
+  }
+
+  const prepared = prepareArticleBody(effective, excerpt);
+  const toRender = (prepared.trim() || effective).trim();
+  if (!toRender) {
+    return (
+      <p className="text-muted-foreground">
+        No content has been added to this article yet.
+      </p>
+    );
+  }
+
+  return renderContent(toRender);
 }
 
 function sanitizeArticleHtml(html: string) {

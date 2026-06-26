@@ -20,7 +20,7 @@ import { filterByCategory } from "@/lib/site-articles";
 import type { Article } from "@/store/articles-context";
 
 export default function Home() {
-  const { loading } = useArticles();
+  const { loading, error } = useArticles();
   const published = usePublishedArticles();
   const popularNews = usePopularNewsArticles();
 
@@ -59,8 +59,26 @@ export default function Home() {
         )}
         {!ready && !loading && (
           <div className="mb-6 border border-border bg-card px-4 py-3 text-[13px] text-muted-foreground leading-relaxed">
-            No articles yet. Import content into Supabase or add articles in the admin
-            dashboard, then refresh.
+            {error ? (
+              <>
+                <span className="font-semibold text-foreground">Could not load articles.</span>{" "}
+                {error}
+                {error.toLowerCase().includes("402") ||
+                error.toLowerCase().includes("quota") ||
+                error.toLowerCase().includes("egress") ? (
+                  <span className="block mt-2">
+                    Your Supabase project may be restricted (free plan egress exceeded).
+                    Check the Supabase dashboard → Usage, then upgrade or wait for the billing
+                    period to reset.
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <>
+                No articles yet. Import content into Supabase or add articles in the admin
+                dashboard, then refresh.
+              </>
+            )}
           </div>
         )}
         {ready && (

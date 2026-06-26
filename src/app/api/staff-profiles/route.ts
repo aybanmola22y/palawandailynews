@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { fetchAdsFromSupabase } from "@/lib/ads/fetch-ads";
+import { fetchStaffProfilesFromSupabase } from "@/lib/staff/fetch-staff-profiles";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
 export const revalidate = 600;
@@ -14,14 +14,14 @@ export async function GET() {
   }
 
   try {
-    const ads = await fetchAdsFromSupabase(service);
-    return NextResponse.json(ads, {
+    const staff = await fetchStaffProfilesFromSupabase(service);
+    return NextResponse.json(staff, {
       headers: {
         "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600",
       },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load ads";
+    const message = err instanceof Error ? err.message : "Failed to load staff";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -5,7 +5,7 @@ import { fetchArticlesByIds } from "@/lib/articles/fetch-published-summaries";
 import { POPULAR_NEWS_ARTICLE_IDS } from "@/data/popular-news";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 900;
 
 function getAnonServerClient() {
   const url = getSupabaseUrl();
@@ -34,7 +34,9 @@ export async function GET() {
       publishedOnly: true,
     });
     return NextResponse.json(articles, {
-      headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" },
+      headers: {
+        "Cache-Control": "public, s-maxage=900, stale-while-revalidate=3600",
+      },
     });
   } catch (err) {
     const message =

@@ -59,7 +59,10 @@ export function subscribeScroll(listener: () => void) {
 export function scrollToTop(immediate = true) {
   const lenis = lenisInstance;
   if (lenis) {
-    lenis.scrollTo(0, { immediate });
+    // Recalculate limits in case page content height changed (e.g. pagination),
+    // and force the scroll even if Lenis is momentarily stopped/locked.
+    lenis.resize();
+    lenis.scrollTo(0, { immediate, force: true });
     return;
   }
 

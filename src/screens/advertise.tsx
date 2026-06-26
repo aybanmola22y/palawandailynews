@@ -41,6 +41,13 @@ const PLACEMENTS = [
     description:
       "A sponsored unit embedded mid-article, designed to match our editorial rhythm while delivering strong engagement.",
   },
+  {
+    name: "Latest News Sidebar (homepage)",
+    dimensions: "400×800",
+    aspect: "aspect-[5/3]",
+    description:
+      "A tall vertical unit in the right column beside the Latest News list on the homepage. Stays visible as readers scroll the feed on desktop.",
+  },
 ] as const;
 
 const AUDIENCE_HIGHLIGHTS = [

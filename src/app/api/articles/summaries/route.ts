@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchPublishedSummaries } from "@/lib/articles/fetch-published-summaries";
+import { PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT } from "@/lib/articles/load-public-summaries";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 
-/** CDN/browser cache — revalidated on CMS publish via revalidatePath. */
-export const revalidate = 120;
+/** CDN cache — revalidated on CMS publish via revalidatePath. */
+export const revalidate = 900;
 
 function getAnonServerClient() {
   const url = getSupabaseUrl();
@@ -16,7 +17,14 @@ function getAnonServerClient() {
   });
 }
 
-export async function GET() {
+function parseLimitParam(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.min(n, PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT);
+}
+
+export async function GET(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json(
       { error: "Supabase not configured" },
@@ -32,14 +40,22 @@ export async function GET() {
     );
   }
 
+  const limit = parseLimitParam(request.nextUrl.searchParams.get("limit"));
+
   try {
     const articles = await fetchPublishedSummaries(client, {
       publishedOnly: true,
+      limit,
     });
+
+    const cacheControl =
+      limit != null
+        ? "public, s-maxage=600, stale-while-revalidate=3600"
+        : "public, s-maxage=900, stale-while-revalidate=7200";
 
     return NextResponse.json(articles, {
       headers: {
-        "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+        "Cache-Control": cacheControl,
       },
     });
   } catch (err) {

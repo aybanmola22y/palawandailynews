@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useArticles, Article, ArticleStatus } from "@/store/articles-context";
 import {
   renderContent,
+  getEffectiveArticleContent,
   prepareArticleBody,
   resolveDisplayExcerpt,
 } from "@/lib/render-content";
@@ -312,7 +313,8 @@ export default function ArticleEditor() {
 
   function bodyForPreviewAndSave(): string {
     const live = htmlEditorRef.current?.getHtml();
-    return normalizeImportedHtml(live || bodyHtml);
+    const raw = live?.trim() ? live : bodyHtml;
+    return normalizeImportedHtml(raw);
   }
 
   async function handleSave(status: ArticleStatus) {

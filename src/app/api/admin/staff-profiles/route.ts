@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { StaffProfileRow } from "@/lib/supabase/database.types";
 import { authorInitials, authorSlug } from "@/lib/author-profile";
+import { revalidatePublicStaffProfiles } from "@/lib/staff/revalidate-public-staff";
 
 type StaffProfileCreateInput = {
   id?: string;
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePublicStaffProfiles();
   if (!data) return NextResponse.json({ error: "Failed to create staff profile" }, { status: 500 });
 
   return NextResponse.json(staffRowToClient(data));

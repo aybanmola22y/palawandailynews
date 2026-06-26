@@ -12,7 +12,7 @@ import type { AdminUser } from "@/store/users-context";
 import type { Article } from "@/store/articles-context";
 import { authorInitials, authorSlug } from "@/lib/author-profile";
 import { defaultAuthorProfile } from "@/lib/author-profile-defaults";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import type { PublicStaffProfile } from "@/lib/staff/fetch-staff-profiles";
 
 export interface StaffProfile {
   id: string;
@@ -28,6 +28,8 @@ export interface StaffProfile {
 const STORAGE_KEY = "pdn_staff";
 const STORAGE_VERSION = "v1";
 const VERSION_KEY = "pdn_staff_version";
+const STAFF_API_CACHE_KEY = "pdn_staff_api_cache";
+const STAFF_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 
 function withDefaults(
   entry: Omit<StaffProfile, "updatedAt" | "avatar" | "profileTitle" | "quote" | "bio" | "badgeLabel"> &
@@ -100,6 +102,45 @@ function saveStaff(staff: StaffProfile[]) {
   } catch {
     /* ignore */
   }
+}
+
+type StaffApiCache = {
+  savedAt: number;
+  staff: PublicStaffProfile[];
+};
+
+function readStaffApiCache(): StaffProfile[] | null {
+  try {
+    const raw = localStorage.getItem(STAFF_API_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StaffApiCache;
+    if (!parsed?.staff?.length) return null;
+    if (Date.now() - parsed.savedAt >= STAFF_CACHE_TTL_MS) return null;
+    return parsed.staff;
+  } catch {
+    return null;
+  }
+}
+
+function writeStaffApiCache(staff: StaffProfile[]) {
+  try {
+    const payload: StaffApiCache = {
+      savedAt: Date.now(),
+      staff,
+    };
+    localStorage.setItem(STAFF_API_CACHE_KEY, JSON.stringify(payload));
+    saveStaff(staff);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function loadStaffFromApi(): Promise<StaffProfile[] | null> {
+  const res = await fetch("/api/staff-profiles", { credentials: "same-origin" });
+  if (!res.ok) return null;
+  const data = (await res.json()) as PublicStaffProfile[];
+  if (!Array.isArray(data) || !data.length) return null;
+  return data;
 }
 
 type StaffContextType = {
@@ -200,39 +241,25 @@ export function StaffProvider({
     let cancelled = false;
 
     async function run() {
-      const client = getSupabaseBrowserClient();
-      if (!client) {
-        // Supabase not configured: fall back to local cached/seed staff.
-        setStaff(loadStaff(seed));
-        hydrated.current = true;
+      const cached = readStaffApiCache();
+      if (cached?.length) {
+        if (!cancelled) {
+          setStaff(mergeWithSeed(cached, seed));
+          hydrated.current = true;
+        }
         return;
       }
 
       try {
-        const { data, error } = await client
-          .from("staff_profiles")
-          .select(
-            "id, name, profile_title, quote, bio, badge_label, avatar, updated_at",
-          )
-          .order("name", { ascending: true });
-
+        const remote = await loadStaffFromApi();
         if (cancelled) return;
 
-        if (error || !data?.length) {
+        if (!remote?.length) {
           setStaff(loadStaff(seed));
         } else {
-          setStaff(
-            data.map((row) => ({
-              id: row.id,
-              name: row.name,
-              profileTitle: row.profile_title ?? "",
-              quote: row.quote ?? "",
-              bio: row.bio ?? "",
-              badgeLabel: row.badge_label ?? "Palawan",
-              avatar: row.avatar ?? authorInitials(row.name),
-              updatedAt: Date.parse(row.updated_at) || Date.now(),
-            })),
-          );
+          const merged = mergeWithSeed(remote, seed);
+          setStaff(merged);
+          writeStaffApiCache(merged);
         }
         hydrated.current = true;
       } catch {
@@ -271,7 +298,11 @@ export function StaffProvider({
     }
 
     const saved = (await res.json()) as StaffProfile;
-    setStaff((prev) => prev.map((s) => (s.id === tempId ? saved : s)));
+    setStaff((prev) => {
+      const next = prev.map((s) => (s.id === tempId ? saved : s));
+      writeStaffApiCache(next);
+      return next;
+    });
   }
 
   async function updateStaff(id: string, changes: Partial<StaffProfile>) {
@@ -318,7 +349,11 @@ export function StaffProvider({
     }
 
     const saved = (await res.json()) as StaffProfile;
-    setStaff((prev) => prev.map((s) => (s.id === id ? saved : s)));
+    setStaff((prev) => {
+      const next = prev.map((s) => (s.id === id ? saved : s));
+      writeStaffApiCache(next);
+      return next;
+    });
   }
 
   async function deleteStaff(id: string) {
@@ -335,6 +370,11 @@ export function StaffProvider({
       const text = await res.text().catch(() => "");
       throw new Error(text || "Failed to delete staff profile");
     }
+
+    setStaff((prev) => {
+      writeStaffApiCache(prev);
+      return prev;
+    });
   }
 
   function findStaffByName(name: string) {

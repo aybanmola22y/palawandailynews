@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/editorial/PageHeader";
 import { PageShell } from "@/components/editorial/PageShell";
 import { LatestSidebar } from "@/components/editorial/LatestSidebar";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
 import { cn } from "@/lib/utils";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
+import { scrollToTop } from "@/lib/smooth-scroll";
 import { filterByCategory, paginateArticles } from "@/lib/site-articles";
 import type { Article } from "@/store/articles-context";
 
@@ -29,6 +30,25 @@ export default function LatestNews() {
   useEffect(() => {
     setPage(1);
   }, [activeCategory]);
+
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    // Scroll after the new page has painted (content height settles), with a
+    // timeout fallback in case the first frame fires before layout.
+    let rafId = 0;
+    rafId = requestAnimationFrame(() => {
+      rafId = requestAnimationFrame(() => scrollToTop(true));
+    });
+    const timeoutId = window.setTimeout(() => scrollToTop(true), 80);
+    return () => {
+      cancelAnimationFrame(rafId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [page]);
 
   const filtered = useMemo(
     () => filterByCategory(published, activeCategory),

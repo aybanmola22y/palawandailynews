@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { StaffProfileRow } from "@/lib/supabase/database.types";
 import { authorInitials, authorSlug } from "@/lib/author-profile";
+import { revalidatePublicStaffProfiles } from "@/lib/staff/revalidate-public-staff";
 import { parseUuidRouteId } from "@/lib/security/route-params";
 
 type StaffProfilePatchInput = {
@@ -93,6 +94,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
   }
 
+  revalidatePublicStaffProfiles();
   return NextResponse.json(staffRowToClient(data));
 }
 
@@ -108,6 +110,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   const { error } = await auth.service.from("staff_profiles").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  revalidatePublicStaffProfiles();
   return new NextResponse(null, { status: 204 });
 }
 

@@ -41,18 +41,19 @@ function downgradeSummarySelectOnError(error: { message?: string } | null) {
 const MAX_PAGES = 30;
 const LIST_EXCERPT_MAX = 280;
 
-function trimListExcerpt(excerpt: string) {
-  const t = excerptToPlainText(excerpt).trim();
-  if (t.length <= LIST_EXCERPT_MAX) return t;
-  return `${t.slice(0, LIST_EXCERPT_MAX).trim()}…`;
-}
-
 function rowToSummaryArticle(row: ArticleRow): Article {
   return rowToArticle({
     ...row,
-    excerpt: trimListExcerpt(row.excerpt ?? ""),
+    excerpt: excerptToPlainText(row.excerpt ?? ""),
     content: "",
   });
+}
+
+/** Short excerpt for list cards only — do not store this on shared article state. */
+export function trimListExcerpt(excerpt: string) {
+  const t = excerptToPlainText(excerpt).trim();
+  if (t.length <= LIST_EXCERPT_MAX) return t;
+  return `${t.slice(0, LIST_EXCERPT_MAX).trim()}…`;
 }
 
 async function fetchSummaryPage(

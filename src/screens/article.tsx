@@ -6,10 +6,11 @@ import { useParams } from "next/navigation";
 import { Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
 import { useArticles } from "@/store/articles-context";
 import { useReadingProgress } from "@/hooks/use-reading-progress";
+import type { Article } from "@/types/article";
 import {
-  renderContent,
   extractHeadings,
   prepareArticleBody,
+  renderArticleBody,
   resolveDisplayExcerpt,
 } from "@/lib/render-content";
 import { ArticleInlineAd } from "@/components/ads/ArticleInlineAd";
@@ -123,7 +124,7 @@ export default function ArticleDetail() {
   const lookupId = resolveArticleId(rawId);
   const popularNews = usePopularNewsArticles();
 
-  const article = useMemo(() => {
+  const articleSummary = useMemo(() => {
     if (!lookupId) return undefined;
     if (rawId.startsWith("wp-")) {
       const wpId = Number(lookupId);
@@ -135,23 +136,52 @@ export default function ArticleDetail() {
   }, [articles, lookupId, rawId]);
 
   const progress = useReadingProgress();
-  const [loadingBody, setLoadingBody] = useState(false);
+  const [fullArticle, setFullArticle] = useState<Article | null>(null);
+  const [loadingBody, setLoadingBody] = useState(true);
+  const [bodyLoaded, setBodyLoaded] = useState(false);
+
+  const fetchId = articleSummary?.id ?? lookupId;
 
   useEffect(() => {
-    if (!article?.id) return;
-    if (article.content?.trim()) {
-      setLoadingBody(false);
-      return;
-    }
+    if (!lookupId) return;
+
     let cancelled = false;
     setLoadingBody(true);
-    void ensureArticleContent(article.id).finally(() => {
-      if (!cancelled) setLoadingBody(false);
-    });
+    setBodyLoaded(false);
+    setFullArticle(null);
+
+    void (async () => {
+      try {
+        const res = await fetch(`/api/articles/${encodeURIComponent(fetchId)}`, {
+          credentials: "same-origin",
+        });
+        if (cancelled) return;
+        if (res.ok) {
+          setFullArticle((await res.json()) as Article);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingBody(false);
+          setBodyLoaded(true);
+        }
+      }
+    })();
+
+    if (articleSummary?.id) {
+      void ensureArticleContent(articleSummary.id);
+    }
+
     return () => {
       cancelled = true;
     };
-  }, [article?.id, article?.content, ensureArticleContent]);
+  }, [lookupId, fetchId, articleSummary?.id, ensureArticleContent]);
+
+  const article = useMemo(() => {
+    if (fullArticle && articleSummary) {
+      return { ...articleSummary, ...fullArticle };
+    }
+    return fullArticle ?? articleSummary;
+  }, [articleSummary, fullArticle]);
 
   const latestSidebar = useMemo(() => {
     const published = getPublishedArticles(articles);
@@ -188,14 +218,22 @@ export default function ArticleDetail() {
     return getRelatedArticles(articles, article, 3);
   }, [articles, article]);
 
-  const articleBody = useMemo(() => {
+  const articleBodySource = useMemo(() => {
     if (!article) return "";
-    return prepareArticleBody(article.content || "", article.excerpt);
+    return article.content?.trim() ?? "";
   }, [article]);
 
-  const headings = useMemo(() => extractHeadings(articleBody), [articleBody]);
+  const articleBodyPrepared = useMemo(() => {
+    if (!article) return "";
+    return prepareArticleBody(articleBodySource, article.excerpt);
+  }, [article, articleBodySource]);
 
-  if (!article) {
+  const headings = useMemo(
+    () => extractHeadings(articleBodyPrepared || articleBodySource),
+    [articleBodyPrepared, articleBodySource],
+  );
+
+  if (!article && bodyLoaded) {
     return (
       <div className="min-h-screen bg-background editorial-container py-24 text-center">
         <h1 className="font-serif text-3xl mb-3">Article unavailable</h1>
@@ -208,6 +246,14 @@ export default function ArticleDetail() {
         >
           Browse latest news
         </Link>
+      </div>
+    );
+  }
+
+  if (!article) {
+    return (
+      <div className="min-h-screen bg-background editorial-container py-24 text-center">
+        <p className="text-muted-foreground text-sm animate-pulse">Loading article…</p>
       </div>
     );
   }
@@ -243,7 +289,9 @@ export default function ArticleDetail() {
               {loadingBody && !article.content?.trim() ? (
                 <p className="text-muted-foreground">Loading story…</p>
               ) : (
-                renderContent(articleBody)
+                renderArticleBody(article.content, article.excerpt, {
+                  allowExcerptFallback: bodyLoaded,
+                })
               )}
             </div>
 

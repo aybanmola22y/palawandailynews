@@ -20,9 +20,6 @@ import {
 } from "@/lib/author-profile";
 import { getAuthorRawCandidates } from "@/lib/author-resolve";
 import { cn } from "@/lib/utils";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { ARTICLE_SUMMARY_SELECT } from "@/lib/articles/fetch-published-summaries";
-import { rowToArticle } from "@/lib/articles/map-article-row";
 import type { Article } from "@/store/articles-context";
 import { formatArticleDate } from "@/lib/site-articles";
 
@@ -141,9 +138,6 @@ export function AuthorHoverCard({
     const key = `${name}|drafts=${includeDrafts}`;
     if (remoteKeyRef.current === key && remotePreviewRef.current) return;
 
-    const client = getSupabaseBrowserClient();
-    if (!client) return;
-
     remoteLoadingRef.current = true;
     setRemoteLoading(true);
     setRemotePreview(null);
@@ -156,26 +150,27 @@ export function AuthorHoverCard({
         const rawCandidates = getAuthorRawCandidates(name);
         if (rawCandidates.length === 0) return;
 
-        let q = client
-          .from("articles")
-          .select(ARTICLE_SUMMARY_SELECT, { count: "exact" })
-          .in("author", rawCandidates)
-          .order("date", { ascending: false })
-          .limit(PREVIEW_LIMIT);
+        const params = new URLSearchParams({
+          name,
+          limit: String(PREVIEW_LIMIT),
+        });
+        if (includeDrafts) params.set("drafts", "1");
 
-        if (!includeDrafts) {
-          q = q.eq("status", "Published");
-        }
+        const res = await fetch(`/api/authors/preview?${params.toString()}`, {
+          credentials: "same-origin",
+        });
+        if (!res.ok) return;
 
-        const { data, error, count } = await q;
-        if (error) return;
-
-        const preview = (data ?? []).map((row) => rowToArticle(row as never));
+        const body = (await res.json()) as {
+          preview?: Article[];
+          totalCount?: number;
+        };
+        const preview = Array.isArray(body.preview) ? body.preview : [];
         remotePreviewRef.current = preview;
         setRemotePreview(preview);
         remoteKeyRef.current = key;
         setRemoteKey(key);
-        const finalCount = count ?? preview.length;
+        const finalCount = body.totalCount ?? preview.length;
         remoteTotalCountRef.current = finalCount;
         setRemoteTotalCount(finalCount);
       } finally {
