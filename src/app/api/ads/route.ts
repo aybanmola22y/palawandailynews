@@ -1,23 +1,28 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { fetchAdsFromSupabase } from "@/lib/ads/fetch-ads";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
-export const revalidate = 600;
+export const revalidate = 1800;
+
+const getCachedAds = unstable_cache(
+  async () => {
+    const service = getSupabaseServiceClient();
+    if (!service) {
+      throw new Error("Supabase is not configured.");
+    }
+    return fetchAdsFromSupabase(service);
+  },
+  ["public-ads"],
+  { revalidate: 1800, tags: ["ads"] },
+);
 
 export async function GET() {
-  const service = getSupabaseServiceClient();
-  if (!service) {
-    return NextResponse.json(
-      { error: "Supabase is not configured." },
-      { status: 503 },
-    );
-  }
-
   try {
-    const ads = await fetchAdsFromSupabase(service);
+    const ads = await getCachedAds();
     return NextResponse.json(ads, {
       headers: {
-        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600",
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
       },
     });
   } catch (err) {

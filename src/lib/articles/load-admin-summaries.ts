@@ -3,11 +3,18 @@ import type { Article } from "@/types/article";
 const ADMIN_API_PATH = "/api/admin/articles/summaries";
 const ADMIN_BOOTSTRAP_LIMIT = 500;
 
-async function fetchAdminSummariesFromApi(limit?: number): Promise<Article[]> {
-  const url =
-    limit != null && limit > 0
-      ? `${ADMIN_API_PATH}?limit=${limit}`
-      : ADMIN_API_PATH;
+async function fetchAdminSummariesFromApi(
+  options: { limit?: number; full?: boolean } = {},
+): Promise<Article[]> {
+  const params = new URLSearchParams();
+  if (options.full) {
+    params.set("full", "1");
+  } else if (options.limit != null && options.limit > 0) {
+    params.set("limit", String(options.limit));
+  }
+
+  const query = params.toString();
+  const url = query ? `${ADMIN_API_PATH}?${query}` : ADMIN_API_PATH;
 
   const res = await fetch(url, {
     method: "GET",
@@ -28,9 +35,9 @@ async function fetchAdminSummariesFromApi(limit?: number): Promise<Article[]> {
 }
 
 export async function loadAdminSummariesBootstrap(): Promise<Article[]> {
-  return fetchAdminSummariesFromApi(ADMIN_BOOTSTRAP_LIMIT);
+  return fetchAdminSummariesFromApi({ limit: ADMIN_BOOTSTRAP_LIMIT });
 }
 
 export async function loadAdminSummariesFull(): Promise<Article[]> {
-  return fetchAdminSummariesFromApi();
+  return fetchAdminSummariesFromApi({ full: true });
 }

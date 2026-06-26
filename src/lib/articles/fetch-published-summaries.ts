@@ -8,6 +8,10 @@ import type { Database } from "@/lib/supabase/database.types";
 export const ARTICLE_SUMMARY_SELECT =
   "id, title, excerpt, category, author, tags, date, reading_time, image_url, is_breaking, status, updated_at, legacy_wp_id, cms_origin";
 
+/** Smaller payload for public list APIs — omits admin/import-only fields. */
+export const PUBLIC_ARTICLE_SUMMARY_SELECT =
+  "id, title, excerpt, category, author, date, reading_time, image_url, is_breaking, updated_at";
+
 const ARTICLE_SUMMARY_SELECT_LEGACY = ARTICLE_SUMMARY_SELECT.replace(
   ", cms_origin",
   "",
@@ -22,18 +26,18 @@ function isMissingCmsOriginColumn(message: string | undefined) {
   return Boolean(message?.includes("cms_origin"));
 }
 
-let resolvedSummarySelect = ARTICLE_SUMMARY_SELECT;
+let resolvedAdminSummarySelect = ARTICLE_SUMMARY_SELECT;
 
-function summarySelectColumns() {
-  return resolvedSummarySelect;
+function adminSummarySelectColumns() {
+  return resolvedAdminSummarySelect;
 }
 
-function downgradeSummarySelectOnError(error: { message?: string } | null) {
+function downgradeAdminSummarySelectOnError(error: { message?: string } | null) {
   if (
-    resolvedSummarySelect === ARTICLE_SUMMARY_SELECT &&
+    resolvedAdminSummarySelect === ARTICLE_SUMMARY_SELECT &&
     isMissingCmsOriginColumn(error?.message)
   ) {
-    resolvedSummarySelect = ARTICLE_SUMMARY_SELECT_LEGACY;
+    resolvedAdminSummarySelect = ARTICLE_SUMMARY_SELECT_LEGACY;
     return true;
   }
   return false;
@@ -42,10 +46,13 @@ const MAX_PAGES = 30;
 const LIST_EXCERPT_MAX = 280;
 
 function rowToSummaryArticle(row: ArticleRow): Article {
+  const plainExcerpt = excerptToPlainText(row.excerpt ?? "");
   return rowToArticle({
     ...row,
-    excerpt: excerptToPlainText(row.excerpt ?? ""),
+    excerpt: trimListExcerpt(plainExcerpt),
     content: "",
+    tags: row.tags ?? [],
+    status: row.status ?? "Published",
   });
 }
 
@@ -61,10 +68,11 @@ async function fetchSummaryPage(
   from: number,
   to: number,
   publishedOnly: boolean,
+  select: string,
 ) {
   let query = client
     .from("articles")
-    .select(summarySelectColumns())
+    .select(select)
     .order("date", { ascending: false })
     .order("updated_at", { ascending: false })
     .range(from, to);
@@ -74,8 +82,8 @@ async function fetchSummaryPage(
   }
 
   let { data, error } = await query;
-  if (error && downgradeSummarySelectOnError(error)) {
-    return fetchSummaryPage(client, from, to, publishedOnly);
+  if (error && select === adminSummarySelectColumns() && downgradeAdminSummarySelectOnError(error)) {
+    return fetchSummaryPage(client, from, to, publishedOnly, adminSummarySelectColumns());
   }
   if (error) throw error;
   return (data ?? []).map((row) =>
@@ -87,9 +95,17 @@ export type FetchPublishedSummariesOptions = {
   /** First paint — cap rows (single round-trip). */
   limit?: number;
   publishedOnly?: boolean;
-  /** @deprecated Tags are always included in summaries. */
+  /** Public lists use a slimmer column set to reduce egress. */
+  selectMode?: "public" | "admin";
+  /** @deprecated Tags are always included in admin summaries. */
   includeTags?: boolean;
 };
+
+function selectColumnsForMode(mode: "public" | "admin") {
+  return mode === "public"
+    ? PUBLIC_ARTICLE_SUMMARY_SELECT
+    : adminSummarySelectColumns();
+}
 
 /** Paginated summary fetch; optional parallel follow-up pages when uncapped. */
 export async function fetchPublishedSummaries(
@@ -97,11 +113,13 @@ export async function fetchPublishedSummaries(
   options: FetchPublishedSummariesOptions = {},
 ): Promise<Article[]> {
   const publishedOnly = options.publishedOnly !== false;
+  const selectMode = options.selectMode ?? "admin";
+  const select = selectColumnsForMode(selectMode);
 
   if (options.limit != null && options.limit > 0) {
     let query = client
       .from("articles")
-      .select(summarySelectColumns())
+      .select(select)
       .order("date", { ascending: false })
       .order("updated_at", { ascending: false })
       .limit(options.limit);
@@ -109,7 +127,7 @@ export async function fetchPublishedSummaries(
     if (publishedOnly) query = query.eq("status", "Published");
 
     let { data, error } = await query;
-    if (error && downgradeSummarySelectOnError(error)) {
+    if (error && selectMode === "admin" && downgradeAdminSummarySelectOnError(error)) {
       return fetchPublishedSummaries(client, options);
     }
     if (error) throw error;
@@ -118,7 +136,7 @@ export async function fetchPublishedSummaries(
     );
   }
 
-  const first = await fetchSummaryPage(client, 0, PAGE_SIZE - 1, publishedOnly);
+  const first = await fetchSummaryPage(client, 0, PAGE_SIZE - 1, publishedOnly, select);
   if (first.length < PAGE_SIZE) return first;
 
   const pageIndexes = Array.from({ length: MAX_PAGES - 1 }, (_, i) => i + 1);
@@ -132,7 +150,13 @@ export async function fetchPublishedSummaries(
     const batch = await Promise.all(
       chunk.map((page) => {
         const from = page * PAGE_SIZE;
-        return fetchSummaryPage(client, from, from + PAGE_SIZE - 1, publishedOnly);
+        return fetchSummaryPage(
+          client,
+          from,
+          from + PAGE_SIZE - 1,
+          publishedOnly,
+          select,
+        );
       }),
     );
     let empty = false;
@@ -160,16 +184,18 @@ export async function fetchArticlesByIds(
   if (uniqueIds.length === 0) return [];
 
   const publishedOnly = options.publishedOnly !== false;
+  const selectMode = options.publishedOnly !== false ? "public" : "admin";
+  const select = selectColumnsForMode(selectMode);
 
   let query = client
     .from("articles")
-    .select(summarySelectColumns())
+    .select(select)
     .in("id", uniqueIds);
 
   if (publishedOnly) query = query.eq("status", "Published");
 
   let { data, error } = await query;
-  if (error && downgradeSummarySelectOnError(error)) {
+  if (error && selectMode === "admin" && downgradeAdminSummarySelectOnError(error)) {
     return fetchArticlesByIds(client, ids, options);
   }
   if (error) throw error;

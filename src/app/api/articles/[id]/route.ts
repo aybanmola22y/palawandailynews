@@ -7,7 +7,10 @@ import { isValidArticleId } from "@/lib/security/safe-url";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
-export const revalidate = 600;
+export const revalidate = 1800;
+
+const ARTICLE_DETAIL_SELECT =
+  "id, title, excerpt, content, category, author, tags, date, reading_time, image_url, is_breaking, status, updated_at, legacy_wp_id, cms_origin";
 
 function getAnonServerClient() {
   const url = getSupabaseUrl();
@@ -41,7 +44,7 @@ export async function GET(
   try {
     const { data, error } = await client
       .from("articles")
-      .select("*")
+      .select(ARTICLE_DETAIL_SELECT)
       .eq("id", id)
       .eq("status", "Published")
       .maybeSingle();
@@ -53,7 +56,7 @@ export async function GET(
 
     return NextResponse.json(rowToArticle(data as ArticleRow), {
       headers: {
-        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600",
+        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
       },
     });
   } catch (err) {

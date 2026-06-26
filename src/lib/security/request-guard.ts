@@ -5,6 +5,16 @@ import {
   hasDisallowedQueryKeys,
 } from "@/lib/security/safe-url";
 
+const PUBLIC_DATA_API_PATHS = [
+  "/api/articles",
+  "/api/authors/preview",
+  "/api/staff-profiles",
+  "/api/ads",
+] as const;
+
+const BOT_USER_AGENT =
+  /(bot|crawler|spider|crawling|facebookexternalhit|twitterbot|slurp|bingpreview|semrush|ahrefs|mj12bot|dotbot|petalbot|bytespider|yandex|baiduspider|duckduckbot)/i;
+
 export function isBlockedRequest(request: NextRequest): boolean {
   const { pathname, search } = request.nextUrl;
 
@@ -38,8 +48,32 @@ export function isBlockedRequest(request: NextRequest): boolean {
   return false;
 }
 
+export function isPublicDataApiPath(pathname: string): boolean {
+  return PUBLIC_DATA_API_PATHS.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
+
+export function isCrawlerRequest(request: NextRequest): boolean {
+  const userAgent = request.headers.get("user-agent") ?? "";
+  return BOT_USER_AGENT.test(userAgent);
+}
+
 export function blockedRequestResponse(): NextResponse {
   return new NextResponse("Bad Request", { status: 400 });
+}
+
+export function crawlerBlockedResponse(): NextResponse {
+  return NextResponse.json(
+    { error: "Automated access to data APIs is disallowed." },
+    {
+      status: 403,
+      headers: {
+        "Cache-Control": "public, max-age=3600",
+        "X-Robots-Tag": "noindex, nofollow, noarchive",
+      },
+    },
+  );
 }
 
 /** Validate dynamic route segment before database lookup. */

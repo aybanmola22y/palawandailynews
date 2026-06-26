@@ -2,7 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
 import {
   blockedRequestResponse,
+  crawlerBlockedResponse,
+  isCrawlerRequest,
   isBlockedRequest,
+  isPublicDataApiPath,
   isValidPublicDynamicRoute,
 } from "@/lib/security/request-guard";
 import { updateAdminSession } from "@/lib/supabase/middleware";
@@ -13,6 +16,10 @@ export async function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
+  if (isPublicDataApiPath(pathname) && isCrawlerRequest(request)) {
+    return applySecurityHeaders(crawlerBlockedResponse(), request);
+  }
+
   if (!pathname.startsWith("/admin") && !isValidPublicDynamicRoute(pathname)) {
     return applySecurityHeaders(blockedRequestResponse(), request);
   }

@@ -3,8 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 import { getAuthorRawCandidates } from "@/lib/author-resolve";
 import {
-  ARTICLE_SUMMARY_SELECT,
+  PUBLIC_ARTICLE_SUMMARY_SELECT,
+  trimListExcerpt,
 } from "@/lib/articles/fetch-published-summaries";
+import { excerptToPlainText } from "@/lib/html-editor-content";
 import { rowToArticle } from "@/lib/articles/map-article-row";
 import type { ArticleRow } from "@/lib/supabase/database.types";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
   try {
     let query = client
       .from("articles")
-      .select(ARTICLE_SUMMARY_SELECT, { count: "exact" })
+      .select(PUBLIC_ARTICLE_SUMMARY_SELECT, { count: "exact" })
       .in("author", rawCandidates)
       .order("date", { ascending: false })
       .limit(limit);
@@ -72,7 +74,13 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     const preview = (data ?? []).map((row) =>
-      rowToArticle(row as ArticleRow),
+      rowToArticle({
+        ...(row as ArticleRow),
+        excerpt: trimListExcerpt(excerptToPlainText((row as ArticleRow).excerpt ?? "")),
+        content: "",
+        tags: [],
+        status: "Published",
+      }),
     );
 
     return NextResponse.json(

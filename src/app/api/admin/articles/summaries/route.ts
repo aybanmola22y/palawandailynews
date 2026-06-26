@@ -1,25 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import { fetchPublishedSummaries } from "@/lib/articles/fetch-published-summaries";
-import { PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT } from "@/lib/articles/load-public-summaries";
+
+const ADMIN_BOOTSTRAP_LIMIT = 500;
 
 function parseLimitParam(raw: string | null): number | undefined {
   if (!raw) return undefined;
   const n = Number.parseInt(raw, 10);
   if (!Number.isFinite(n) || n <= 0) return undefined;
-  return Math.min(n, 500);
+  return Math.min(n, ADMIN_BOOTSTRAP_LIMIT);
 }
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminRouteAuth();
   if (auth instanceof NextResponse) return auth;
 
-  const limit = parseLimitParam(request.nextUrl.searchParams.get("limit"));
+  const wantFull = request.nextUrl.searchParams.get("full") === "1";
+  const parsedLimit = parseLimitParam(request.nextUrl.searchParams.get("limit"));
+  const limit = wantFull ? undefined : (parsedLimit ?? ADMIN_BOOTSTRAP_LIMIT);
 
   try {
     const articles = await fetchPublishedSummaries(auth.service, {
       publishedOnly: false,
-      includeTags: true,
+      selectMode: "admin",
       limit,
     });
 
