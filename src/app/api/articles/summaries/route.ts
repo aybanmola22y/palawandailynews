@@ -6,8 +6,8 @@ import { fetchPublishedSummaries } from "@/lib/articles/fetch-published-summarie
 import { PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT } from "@/lib/articles/load-public-summaries";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 
-/** CDN cache — revalidated on CMS publish via revalidatePath / revalidateTag. */
-export const revalidate = 1800;
+/** Short ISR window — admin publish also calls revalidateTag. */
+export const revalidate = 60;
 
 function getAnonServerClient() {
   const url = getSupabaseUrl();
@@ -37,8 +37,8 @@ const getCachedPublicSummaries = unstable_cache(
       selectMode: "public",
     });
   },
-  ["public-article-summaries"],
-  { revalidate: 1800, tags: ["article-summaries"] },
+  ["public-article-summaries-v2"],
+  { revalidate: 60, tags: ["article-summaries"] },
 );
 
 export async function GET(request: NextRequest) {
@@ -56,8 +56,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(articles, {
       headers: {
-        "Cache-Control":
-          "public, s-maxage=1800, stale-while-revalidate=86400",
+        // Do not use long stale-while-revalidate — publishing from localhost
+        // cannot purge every CDN edge, and readers were stuck on old lists.
+        "Cache-Control": "public, s-maxage=60, max-age=0, must-revalidate",
       },
     });
   } catch (err) {

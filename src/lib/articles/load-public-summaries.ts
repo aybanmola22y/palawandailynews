@@ -7,11 +7,16 @@ const API_PATH = "/api/articles/summaries";
 export const PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT = 150;
 
 async function fetchSummariesFromApi(): Promise<Article[]> {
-  const res = await fetch(`${API_PATH}?limit=${PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT}`, {
-    method: "GET",
-    credentials: "same-origin",
-    cache: "no-store",
-  });
+  // Minute bucket busts shared CDN keys without a full no-cache storm.
+  const bust = Math.floor(Date.now() / 60_000);
+  const res = await fetch(
+    `${API_PATH}?limit=${PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT}&v=${bust}`,
+    {
+      method: "GET",
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
