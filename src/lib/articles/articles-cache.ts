@@ -1,12 +1,15 @@
 import type { Article } from "@/types/article";
 
 /** Bump when cache shape/invalidation rules change (forces clients to refetch). */
-export const ARTICLES_SUMMARIES_CACHE_KEY = "pdn-articles-summaries-v9";
+export const ARTICLES_SUMMARIES_CACHE_KEY = "pdn-articles-summaries-v10";
 const CACHE_KEY = ARTICLES_SUMMARIES_CACHE_KEY;
 /** Bumped on admin writes so other tabs drop stale lists. */
 export const ARTICLES_CACHE_BUST_KEY = "pdn-articles-cache-bust";
-/** Longer TTL — summaries change infrequently; bust on admin publish. */
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+/**
+ * How long a cached list may be shown instantly (stale-while-revalidate).
+ * Network refresh still runs in the background so new publishes appear quickly.
+ */
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 type CachePayload = {
   savedAt: number;
@@ -91,6 +94,7 @@ function clearLegacySessionCache() {
     localStorage.removeItem("pdn-articles-summaries-v6");
       localStorage.removeItem("pdn-articles-summaries-v7");
       localStorage.removeItem("pdn-articles-summaries-v8");
+      localStorage.removeItem("pdn-articles-summaries-v9");
   } catch {
     /* ignore */
   }

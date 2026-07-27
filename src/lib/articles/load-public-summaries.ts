@@ -10,6 +10,7 @@ async function fetchSummariesFromApi(): Promise<Article[]> {
   const res = await fetch(`${API_PATH}?limit=${PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT}`, {
     method: "GET",
     credentials: "same-origin",
+    cache: "no-store",
   });
 
   if (!res.ok) {

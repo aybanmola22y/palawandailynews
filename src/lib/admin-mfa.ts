@@ -9,6 +9,15 @@ export type AdminMfaChallenge = {
   challengeId: string;
 };
 
+/**
+ * Temporary recovery switch (lost phone, etc.).
+ * Set ADMIN_MFA_DISABLED=true in .env — remove after you re-enroll a new authenticator.
+ */
+export function isAdminMfaDisabled(): boolean {
+  const v = process.env.ADMIN_MFA_DISABLED?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 /** Label shown in authenticator apps (QR issuer). Not tied to Supabase Site URL. */
 export function getAdminMfaTotpIssuer(): string {
   const custom = process.env.ADMIN_MFA_TOTP_ISSUER?.trim();
@@ -74,11 +83,13 @@ export async function adminHasVerifiedTotpEnrolled(
 
 /** No authenticator enrolled yet — must visit Security before using the CMS. */
 export async function adminMustEnrollMfa(supabase: MfaClient): Promise<boolean> {
+  if (isAdminMfaDisabled()) return false;
   return !(await adminHasVerifiedTotpEnrolled(supabase));
 }
 
 /** Full admin access: enrolled + verified code this session (AAL2). */
 export async function adminMeetsMfaPolicy(supabase: MfaClient): Promise<boolean> {
+  if (isAdminMfaDisabled()) return true;
   if (!(await adminHasVerifiedTotpEnrolled(supabase))) return false;
   const { data: aal, error } =
     await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -90,6 +101,7 @@ export async function adminMeetsMfaPolicy(supabase: MfaClient): Promise<boolean>
 export async function adminNeedsMfaChallenge(
   supabase: MfaClient,
 ): Promise<boolean> {
+  if (isAdminMfaDisabled()) return false;
   const { data: factors, error: factorsError } =
     await supabase.auth.mfa.listFactors();
   if (factorsError) return false;

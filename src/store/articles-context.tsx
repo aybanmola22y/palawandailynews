@@ -16,7 +16,6 @@ import {
   ARTICLES_CACHE_BUST_KEY,
   ARTICLES_SUMMARIES_CACHE_KEY,
   clearArticlesCache,
-  isArticlesCacheFresh,
   readArticlesCache,
   writeArticlesCache,
 } from "@/lib/articles/articles-cache";
@@ -120,20 +119,14 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Stale-while-revalidate: paint cached list immediately, always refresh
+    // from the network so CMS publishes are not stuck behind a long TTL.
     const cached = readArticlesCache();
     if (cached?.length && mounted.current) {
       setArticles(dedupeArticlesById(withResolvedArticleImages(cached)));
       setLoading(false);
     } else if (mounted.current) {
       setLoading(true);
-    }
-
-    if (isArticlesCacheFresh() && cached?.length) {
-      if (mounted.current) {
-        setArchiveLoading(false);
-        setLoading(false);
-      }
-      return;
     }
 
     try {
@@ -144,7 +137,10 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       }
     } catch (err) {
       if (mounted.current) {
-        setError(err instanceof Error ? err.message : "Failed to load articles");
+        // Keep showing cache if we have it; only surface errors on empty state.
+        if (!cached?.length) {
+          setError(err instanceof Error ? err.message : "Failed to load articles");
+        }
       }
     } finally {
       if (mounted.current) {
@@ -209,6 +205,23 @@ export function ArticlesProvider({ children }: { children: ReactNode }) {
       mounted.current = false;
     };
   }, [refreshArticles]);
+
+  useEffect(() => {
+    if (isAdminRoute) return;
+
+    function onVisible() {
+      if (document.visibilityState === "visible") {
+        void refreshArticles();
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [isAdminRoute, refreshArticles]);
 
   useEffect(() => {
     function onStorage(event: StorageEvent) {
