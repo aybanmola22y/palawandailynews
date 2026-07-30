@@ -174,6 +174,42 @@ export async function fetchPublishedSummaries(
   return [...first, ...rest];
 }
 
+/** Cap for the Opinion archive page — covers imported columns without loading the full news corpus. */
+export const PUBLIC_OPINION_SUMMARY_LIMIT = 500;
+
+/**
+ * Published Opinion / Column summaries only (WordPress often tags these as
+ * "Column, Sports", "Column, Opinion", etc.).
+ */
+export async function fetchPublishedOpinionSummaries(
+  client: SupabaseClient<Database>,
+  options: { limit?: number } = {},
+): Promise<Article[]> {
+  const limit = Math.min(
+    Math.max(options.limit ?? PUBLIC_OPINION_SUMMARY_LIMIT, 1),
+    PUBLIC_OPINION_SUMMARY_LIMIT,
+  );
+  const select = PUBLIC_ARTICLE_SUMMARY_SELECT;
+
+  const { data, error } = await client
+    .from("articles")
+    .select(select)
+    .eq("status", "Published")
+    .or("category.ilike.%Opinion%,category.ilike.%Column%")
+    .order("date", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((row) => rowToSummaryArticle(row as unknown as ArticleRow))
+    .filter((article) => {
+      const cat = article.category.toLowerCase();
+      return cat === "opinion" || cat === "column";
+    });
+}
+
 /** Load specific articles by slug id (homepage Popular News, etc.). */
 export async function fetchArticlesByIds(
   client: SupabaseClient<Database>,

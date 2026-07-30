@@ -16,7 +16,7 @@ import { PopularNewsSidebar } from "@/components/editorial/PopularNewsSidebar";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
 import { useArticles } from "@/store/articles-context";
 import { usePopularNewsArticles } from "@/hooks/use-popular-news-articles";
-import { filterByCategory } from "@/lib/site-articles";
+import { filterByCategory, isOpinionOrColumnCategory } from "@/lib/site-articles";
 import type { Article } from "@/store/articles-context";
 
 export default function Home() {
@@ -36,10 +36,7 @@ export default function Home() {
   const opinionArticles = useMemo(
     () =>
       published
-        .filter((a) => {
-          const cat = a.category.toLowerCase();
-          return cat === "column" || cat === "opinion";
-        })
+        .filter((a) => isOpinionOrColumnCategory(a.category))
         .slice(0, 3),
     [published],
   );

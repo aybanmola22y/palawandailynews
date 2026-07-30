@@ -4,10 +4,12 @@ import { PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT } from "@/lib/articles/load-public-sum
 /** Bust Next.js data cache for the public article list API after admin writes. */
 export function revalidatePublicArticleSummaries() {
   revalidateTag("article-summaries");
+  revalidateTag("article-opinion");
   revalidatePath("/api/articles/summaries");
   revalidatePath(
     `/api/articles/summaries?limit=${PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT}`,
   );
+  revalidatePath("/api/articles/opinion");
   revalidatePath("/");
   revalidatePath("/latest");
   revalidatePath("/opinion");

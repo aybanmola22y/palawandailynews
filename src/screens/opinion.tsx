@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { PageShell } from "@/components/editorial/PageShell";
 import { SidebarPanel } from "@/components/editorial/SidebarPanel";
@@ -11,13 +11,12 @@ import { usePopularNewsArticles } from "@/hooks/use-popular-news-articles";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
 import {
   authorProfilePath,
+  formatAuthorDisplayName,
   isGenericPublicationAuthor,
 } from "@/lib/author-profile";
-import { paginateArticles } from "@/lib/site-articles";
-import {
-  ColumnistsVoicesStrip,
-  type ColumnistVoice,
-} from "@/components/editorial/ColumnistsVoicesStrip";
+import { withResolvedArticleImages } from "@/lib/articles/map-article-row";
+import { isOpinionOrColumnCategory, paginateArticles } from "@/lib/site-articles";
+import type { ColumnistVoice } from "@/components/editorial/ColumnistsVoicesStrip";
 import type { Article } from "@/store/articles-context";
 
 const TOPICS = [
@@ -59,10 +58,7 @@ function OpinionSidebar({ voices }: { voices: ColumnistVoice[] }) {
   const latestNews = useMemo(
     () =>
       published
-        .filter((a) => {
-          const cat = a.category.toLowerCase();
-          return cat !== "column" && cat !== "opinion";
-        })
+        .filter((a) => !isOpinionOrColumnCategory(a.category))
         .slice(0, 6),
     [published],
   );
@@ -179,23 +175,55 @@ function OpinionMasthead({
 
 export default function Opinion() {
   const published = usePublishedArticles();
+  const [archive, setArchive] = useState<Article[] | null>(null);
   const [page, setPage] = useState(1);
+  const [selectedAuthor, setSelectedAuthor] = useState("");
   const perPage = 10;
 
-  const columnArticles = useMemo(
-    () =>
-      published.filter((a) => {
-        const cat = a.category.toLowerCase();
-        return cat === "column" || cat === "opinion";
-      }),
+  const bootstrapOpinion = useMemo(
+    () => published.filter((a) => isOpinionOrColumnCategory(a.category)),
     [published],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/articles/opinion", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as Article[];
+        if (cancelled || !Array.isArray(data)) return;
+        setArchive(withResolvedArticleImages(data));
+      } catch {
+        /* keep bootstrap slice */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const columnArticles = archive ?? bootstrapOpinion;
+
   const voices = useMemo(() => buildColumnists(columnArticles), [columnArticles]);
 
+  const filteredArticles = useMemo(() => {
+    if (!selectedAuthor) return columnArticles;
+    const selected = selectedAuthor.trim().toLowerCase();
+    return columnArticles.filter(
+      (article) => article.author.trim().toLowerCase() === selected,
+    );
+  }, [columnArticles, selectedAuthor]);
+
   const { items: streamArticles, totalPages } = useMemo(
-    () => paginateArticles(columnArticles, page, perPage),
-    [columnArticles, page],
+    () => paginateArticles(filteredArticles, page, perPage),
+    [filteredArticles, page],
   );
 
   return (
@@ -207,27 +235,57 @@ export default function Opinion() {
         />
 
         <section>
-          <div className="mb-2 flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="mb-8 flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 The record
               </p>
               <h2 className="mt-1 font-serif text-2xl text-foreground md:text-3xl">
-                Latest Opinion
+                {selectedAuthor
+                  ? formatAuthorDisplayName(selectedAuthor)
+                  : "Latest Opinion"}
               </h2>
             </div>
-            {totalPages > 1 ? (
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Page {page} of {totalPages}
-              </p>
-            ) : null}
+            <div className="flex flex-col gap-2 sm:items-end">
+              <label
+                htmlFor="opinion-author-filter"
+                className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+              >
+                Author
+              </label>
+              <select
+                id="opinion-author-filter"
+                value={selectedAuthor}
+                onChange={(e) => {
+                  setSelectedAuthor(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full min-w-[220px] max-w-full border border-border bg-card px-3 py-2 text-[13px] text-foreground outline-none transition-colors focus:border-primary sm:w-auto sm:min-w-[280px]"
+              >
+                <option value="">
+                  All authors ({columnArticles.length})
+                </option>
+                {voices.map((voice) => (
+                  <option key={voice.name} value={voice.name}>
+                    {formatAuthorDisplayName(voice.name)} ({voice.pieceCount})
+                  </option>
+                ))}
+              </select>
+              {totalPages > 1 ? (
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Page {page} of {totalPages}
+                </p>
+              ) : null}
+            </div>
           </div>
 
           {streamArticles.length === 0 ? (
             <div className="py-16 text-center text-muted-foreground">
-              <p className="font-serif text-xl text-foreground">No opinion pieces yet</p>
+              <p className="font-serif text-xl text-foreground">
+                No opinion pieces found
+              </p>
               <p className="mt-2 text-sm">
-                Import or publish stories with category Opinion or Column.
+                Try selecting another author.
               </p>
             </div>
           ) : (

@@ -1,19 +1,37 @@
 import type { Article } from "@/store/articles-context";
 
-/** One label from WordPress-style lists: "City News, City News > Puerto Princesa, Environment" → "Environment" */
+function categoryLeaf(segment: string): string {
+  if (!segment.includes(">")) return segment.trim();
+  const parts = segment.split(">").map((s) => s.trim()).filter(Boolean);
+  return parts[parts.length - 1] ?? segment.trim();
+}
+
+/** True when any WP category segment is Opinion or Column. */
+export function isOpinionOrColumnCategory(raw: string): boolean {
+  return raw
+    .split(",")
+    .map((s) => categoryLeaf(s).toLowerCase())
+    .some((leaf) => leaf === "opinion" || leaf === "column");
+}
+
+/**
+ * One label from WordPress-style lists.
+ * Prefer Opinion/Column when present so compound tags like "Column, Sports"
+ * still land on the Opinion page instead of Sports.
+ */
 export function getPrimaryCategory(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "News";
 
   const segments = trimmed.split(",").map((s) => s.trim()).filter(Boolean);
-  let pick = segments[segments.length - 1] ?? trimmed;
 
-  if (pick.includes(">")) {
-    const parts = pick.split(">").map((s) => s.trim()).filter(Boolean);
-    pick = parts[parts.length - 1] ?? pick;
-  }
+  const editorial = segments.find((segment) => {
+    const leaf = categoryLeaf(segment).toLowerCase();
+    return leaf === "opinion" || leaf === "column";
+  });
+  if (editorial) return categoryLeaf(editorial);
 
-  return pick;
+  return categoryLeaf(segments[segments.length - 1] ?? trimmed);
 }
 
 export function isPublished(article: Article) {
