@@ -22,14 +22,20 @@ const dmSerif = DM_Serif_Display({
 
 const siteUrl = getSiteUrl();
 
+const SITE_NAME = "Palawan Daily News";
+const SITE_TAGLINE = "Trusted and Fair Quad Media Network in MIMAROPA";
+const DEFAULT_TITLE = `${SITE_NAME} | ${SITE_TAGLINE}`;
+const DEFAULT_DESCRIPTION =
+  "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Palawan Daily News",
-    template: "%s | Palawan Daily News",
+    default: DEFAULT_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
-  description:
-    "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.",
+  description: DEFAULT_DESCRIPTION,
+  applicationName: SITE_NAME,
   alternates: {
     canonical: "/",
   },
@@ -37,16 +43,14 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_PH",
     url: siteUrl,
-    siteName: "Palawan Daily News",
-    title: "Palawan Daily News",
-    description:
-      "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.",
+    siteName: SITE_NAME,
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Palawan Daily News",
-    description:
-      "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.",
+    title: DEFAULT_TITLE,
+    description: DEFAULT_DESCRIPTION,
   },
   robots: {
     index: true,
