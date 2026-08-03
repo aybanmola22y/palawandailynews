@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adChangesToRow, rowToAd } from "@/lib/ads/map-ad-row";
+import { revalidatePublicAds } from "@/lib/ads/revalidate-public-ads";
 import { requireAdminRouteAuth } from "@/lib/admin-route-auth";
 import type { Ad } from "@/store/ads-context";
 import { parseArticleRouteId } from "@/lib/security/route-params";
@@ -37,6 +38,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   if (!data) {
     return NextResponse.json({ error: "Advertisement not found" }, { status: 404 });
   }
+
+  revalidatePublicAds();
 
   return NextResponse.json(rowToAd(data));
 }

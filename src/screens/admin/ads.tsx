@@ -102,6 +102,32 @@ function AdEditor({
     }
   }
 
+  async function clearImageAndSave() {
+    const next = { ...form, image: "" };
+    setForm(next);
+    try {
+      await onSave(next);
+      adminToast.success(
+        "Banner removed",
+        "Cleared from Supabase — the site will show the placeholder.",
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      adminToast.error(
+        "Could not remove banner",
+        err instanceof Error ? err.message : "Failed to update advertisement.",
+      );
+      setForm({
+        client: ad.client,
+        status: ad.status,
+        image: ad.image,
+        linkUrl: ad.linkUrl,
+        altText: ad.altText,
+      });
+    }
+  }
+
   return (
     <div className="bg-white dark:bg-[#1A1A18] border border-border flex flex-col">
       <div className="p-6 border-b border-border flex justify-between items-start bg-[#FAFAF8] dark:bg-[#111111]">
@@ -275,7 +301,7 @@ function AdEditor({
             {hasCustomAdImage(ad.placement, form.image) ? (
               <button
                 type="button"
-                onClick={() => setForm({ ...form, image: "" })}
+                onClick={() => void clearImageAndSave()}
                 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[#C41E3A] self-start"
               >
                 <X className="w-3 h-3" /> Remove image
@@ -283,12 +309,17 @@ function AdEditor({
             ) : form.image === getDefaultAdImage(ad.placement) ? (
               <button
                 type="button"
-                onClick={() => setForm({ ...form, image: "" })}
+                onClick={() => void clearImageAndSave()}
                 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-[#C41E3A] self-start"
               >
                 <X className="w-3 h-3" /> Clear placeholder
               </button>
-            ) : null}
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                No banner saved — homepage shows the empty placeholder until you
+                upload and save.
+              </p>
+            )}
           </div>
         </div>
 
@@ -296,29 +327,28 @@ function AdEditor({
           <span className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
             Live preview
           </span>
-          <div className="border border-border overflow-hidden">
+          <div className="border border-border overflow-hidden bg-muted">
             {hasCustomAdImage(ad.placement, form.image) ? (
-              <div className="aspect-[5/1] min-h-[100px] bg-muted">
-                <img
-                  src={form.image}
-                  alt={form.altText || "Preview"}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <img
+                src={form.image}
+                alt={form.altText || "Preview"}
+                className="block h-auto w-full"
+              />
             ) : form.image === getDefaultAdImage(ad.placement) ? (
-              <div className="aspect-[5/1] min-h-[100px] bg-muted flex flex-col items-center justify-center gap-1 px-4 text-center">
+              <div className="flex min-h-[100px] flex-col items-center justify-center gap-1 px-4 py-6 text-center">
                 <img
                   src={form.image}
                   alt=""
-                  className="max-h-[70%] w-full object-contain opacity-80"
+                  className="max-h-40 w-full object-contain opacity-80"
                 />
                 <p className="text-[11px] text-muted-foreground">
                   Stock placeholder — upload or clear to use an empty slot on the site
                 </p>
               </div>
             ) : (
-              <div className="aspect-[5/1] min-h-[100px] border-2 border-dashed border-border bg-muted/50 flex items-center justify-center text-[12px] text-muted-foreground px-4 text-center">
-                No image — this placement will not appear on article pages until you upload a banner
+              <div className="flex min-h-[100px] items-center justify-center border-2 border-dashed border-border bg-muted/50 px-4 py-8 text-center text-[12px] text-muted-foreground">
+                No image — this placement will not appear on the site until you
+                upload a banner
               </div>
             )}
           </div>
@@ -365,8 +395,8 @@ export default function AdminAds() {
         <AdEditor
           ad={headerBanner}
           onSave={(changes) => updateAd(headerBanner.id, changes)}
-          description="Controls the banner directly below the navigation on the homepage. While status is not Active, visitors see the dashed placeholder."
-          recommendedSize="970 × 250 px"
+          description="Controls the banner directly below the navigation on the homepage. The full uploaded image is shown without cropping. While status is not Active, visitors see the dashed placeholder."
+          recommendedSize="970 × 250 px (or any wide banner — shown at full width)"
           previewHref="/"
         />
       )}
@@ -376,7 +406,7 @@ export default function AdminAds() {
           ad={homepageMid}
           onSave={(changes) => updateAd(homepageMid.id, changes)}
           description="Full-width banner on the homepage, directly under Legal Notices and Lifestyle."
-          recommendedSize="1400 × 280 px (5:1)"
+          recommendedSize="1400 × 280 px (or any wide banner — shown in full, no crop)"
         />
       )}
 
@@ -385,7 +415,7 @@ export default function AdminAds() {
           ad={articleInline}
           onSave={(changes) => updateAd(articleInline.id, changes)}
           description="Sponsored unit below the article tags on every published story (before share buttons and related stories)."
-          recommendedSize="860 × 484 px (16:9)"
+          recommendedSize="860 × 484 px (or any banner — shown in full, no crop)"
         />
       )}
 

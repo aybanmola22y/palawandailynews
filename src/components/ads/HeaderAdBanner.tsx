@@ -57,8 +57,7 @@ export function HeaderAdBanner() {
         {showLive && ad ? (
           <AdUnit
             ad={ad}
-            aspectClass="aspect-[970/250]"
-            minHeightClass="min-h-[80px] sm:min-h-[120px] lg:min-h-[140px]"
+            imageFit="natural"
             testId="header-banner"
           />
         ) : (

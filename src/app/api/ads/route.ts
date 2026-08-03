@@ -3,7 +3,7 @@ import { unstable_cache } from "next/cache";
 import { fetchAdsFromSupabase } from "@/lib/ads/fetch-ads";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 
-export const revalidate = 1800;
+export const revalidate = 60;
 
 const getCachedAds = unstable_cache(
   async () => {
@@ -13,8 +13,8 @@ const getCachedAds = unstable_cache(
     }
     return fetchAdsFromSupabase(service);
   },
-  ["public-ads"],
-  { revalidate: 1800, tags: ["ads"] },
+  ["public-ads-v2"],
+  { revalidate: 60, tags: ["ads"] },
 );
 
 export async function GET() {
@@ -22,7 +22,7 @@ export async function GET() {
     const ads = await getCachedAds();
     return NextResponse.json(ads, {
       headers: {
-        "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
+        "Cache-Control": "public, s-maxage=60, max-age=0, must-revalidate",
       },
     });
   } catch (err) {

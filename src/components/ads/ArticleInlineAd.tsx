@@ -67,8 +67,7 @@ export function ArticleInlineAd() {
       {showLive && ad ? (
         <AdUnit
           ad={ad}
-          aspectClass="aspect-[16/9]"
-          minHeightClass="min-h-[180px] sm:min-h-[220px]"
+          imageFit="natural"
           wrapperClassName=""
           testId="article-inline-ad"
         />

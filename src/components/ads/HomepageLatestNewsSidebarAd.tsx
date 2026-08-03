@@ -59,6 +59,7 @@ export function HomepageLatestNewsSidebarAd({ className }: { className?: string 
       {showLive && ad ? (
         <AdUnit
           ad={ad}
+          imageFit="contain"
           aspectClass=""
           minHeightClass="min-h-[520px]"
           fillHeight

@@ -185,7 +185,8 @@ export function AdsProvider({ children }: { children: ReactNode }) {
   const refreshAds = async () => {
     clearLegacyAdStorage();
     try {
-      const res = await fetch("/api/ads");
+      const bust = Math.floor(Date.now() / 60_000);
+      const res = await fetch(`/api/ads?v=${bust}`, { cache: "no-store" });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? res.statusText);

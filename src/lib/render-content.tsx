@@ -110,6 +110,43 @@ function processPlainBlockText(inner: string): string {
   return dedupeSentencesInPlainText(stripInlineDuplicateBlocks(plain));
 }
 
+/** Keep safe <img> markup through the plain-text cleanup pipeline. */
+function sanitizeImgTag(tag: string): string {
+  const src = tag.match(/\bsrc=["']([^"']+)["']/i)?.[1]?.trim() ?? "";
+  if (!src) return "";
+  const altRaw = tag.match(/\balt=["']([^"']*)["']/i)?.[1] ?? "";
+  const alt = escapeHtmlText(altRaw);
+  const resolved = resolveImageUrl(src);
+  const safeSrc = escapeHtmlText(resolved);
+  return `<img src="${safeSrc}" alt="${alt}" />`;
+}
+
+/**
+ * Clean a paragraph/div inner HTML while preserving <img> tags and order.
+ * Text segments are deduped/escaped; images keep their relative position.
+ */
+function processHtmlBlockPreservingMedia(inner: string): string {
+  const parts: string[] = [];
+  const re = /(<img\b[^>]*>)/gi;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(inner)) !== null) {
+    const textPart = inner.slice(lastIndex, match.index);
+    const cleaned = processPlainBlockText(textPart);
+    if (cleaned) parts.push(escapeHtmlText(cleaned));
+    const img = sanitizeImgTag(match[1]);
+    if (img) parts.push(img);
+    lastIndex = match.index + match[0].length;
+  }
+  const tail = processPlainBlockText(inner.slice(lastIndex));
+  if (tail) parts.push(escapeHtmlText(tail));
+  return parts.join("");
+}
+
+function blockHasMedia(html: string): boolean {
+  return /<img\b/i.test(html);
+}
+
 function extractHtmlContentBlocks(html: string): string[] {
   const blocks: string[] = [];
   const pRe = /<p[^>]*>([\s\S]*?)<\/p>/gi;
@@ -125,6 +162,12 @@ function extractHtmlContentBlocks(html: string): string[] {
     blocks.push(inner);
   }
 
+  // Standalone images outside <p> (some browsers insert them this way).
+  if (blocks.length === 0) {
+    const looseImgs = [...html.matchAll(/<img\b[^>]*>/gi)].map((m) => m[0]);
+    if (looseImgs.length) return looseImgs;
+  }
+
   return blocks;
 }
 
@@ -136,11 +179,11 @@ function rebuildCleanArticleHtml(html: string): string {
   }
 
   const processed = blocks
-    .map((inner) => processPlainBlockText(inner))
+    .map((inner) => processHtmlBlockPreservingMedia(inner))
     .filter((t) => t.length > 0);
 
   const deduped = filterDuplicateParagraphBlocks(processed);
-  return deduped.map((t) => `<p>${escapeHtmlText(t)}</p>`).join("\n");
+  return deduped.map((t) => `<p>${t}</p>`).join("\n");
 }
 
 /** First paragraph/block of article body as normalized plain text. */
@@ -237,7 +280,13 @@ function stripExcerptPrefixOverlap(content: string, excerpt?: string): string {
     if (skip > 0) {
       const kept = blocks.slice(skip);
       if (kept.length === 0) return content;
-      return kept.map((t) => `<p>${escapeHtmlText(processPlainBlockText(t))}</p>`).join("\n");
+      return kept
+        .map((t) => {
+          const rebuilt = processHtmlBlockPreservingMedia(t);
+          return rebuilt ? `<p>${rebuilt}</p>` : "";
+        })
+        .filter(Boolean)
+        .join("\n");
     }
     return content;
   }
@@ -377,6 +426,10 @@ function dedupeSentencesInPlainText(text: string): string {
 function dedupeParagraphInner(html: string): string {
   const open = html.match(/^<p[^>]*>/i)?.[0] ?? "<p>";
   const inner = html.replace(/^<p[^>]*>/i, "").replace(/<\/p>\s*$/i, "");
+  if (blockHasMedia(inner)) {
+    const rebuilt = processHtmlBlockPreservingMedia(inner);
+    return rebuilt ? `${open}${rebuilt}</p>` : html;
+  }
   const deduped = processPlainBlockText(inner);
   if (!deduped) return html;
   return `${open}${escapeHtmlText(deduped)}</p>`;
@@ -419,20 +472,25 @@ function findArticleRestartIndex(norms: string[]): number | null {
 }
 
 function filterDuplicateParagraphBlocks(blocks: string[]): string[] {
-  const cleaned = blocks.map((block) =>
-    looksLikeHtml(block) ? dedupeParagraphInner(block) : dedupeSentencesInPlainText(block),
-  );
+  // Blocks are either plain text (dedupePlainBody) or already-sanitized HTML
+  // inners from processHtmlBlockPreservingMedia (escaped text + optional <img>).
+  const cleaned = blocks.map((block) => {
+    if (blockHasMedia(block)) return block;
+    if (/^<p[\s>]/i.test(block)) return dedupeParagraphInner(block);
+    return dedupeSentencesInPlainText(stripHtmlToPlain(block) || block);
+  });
 
   const filtered: string[] = [];
   for (const block of cleaned) {
     const norm = normalizeContentPlainText(block);
-    if (!norm) continue;
+    const hasMedia = blockHasMedia(block);
+    if (!norm && !hasMedia) continue;
 
     const lastNorm =
       filtered.length > 0
         ? normalizeContentPlainText(filtered[filtered.length - 1])
         : "";
-    if (paragraphsAreDuplicate(lastNorm, norm)) continue;
+    if (norm && paragraphsAreDuplicate(lastNorm, norm)) continue;
 
     filtered.push(block);
   }

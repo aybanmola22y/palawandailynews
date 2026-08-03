@@ -1,31 +1,42 @@
 "use client";
 
 import { Search as SearchIcon, X } from "lucide-react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { PageHeader } from "@/components/editorial/PageHeader";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
-import { usePublishedArticles } from "@/hooks/use-published-articles";
 import { sanitizeSearchQuery } from "@/lib/security/safe-url";
-import { paginateArticles, searchArticles } from "@/lib/site-articles";
+import {
+  PUBLIC_SEARCH_MAX_PAGE,
+  PUBLIC_SEARCH_MIN_QUERY,
+  PUBLIC_SEARCH_PAGE_SIZE,
+  type PublishedSearchResult,
+} from "@/lib/articles/search-published-shared";
 import type { Article } from "@/store/articles-context";
 
-const SEARCH_DEBOUNCE_MS = 300;
+/** Slightly longer than before — fewer requests while typing (egress-friendly). */
+const SEARCH_DEBOUNCE_MS = 450;
+
+type SearchResponse = PublishedSearchResult & { query?: string; error?: string };
 
 export default function Search() {
-  const published = usePublishedArticles();
   const router = useRouter();
   const sp = useSearchParams();
   const initialQ = sanitizeSearchQuery(sp.get("q") ?? "");
 
   /** Immediate — keeps typing responsive. */
   const [input, setInput] = useState(initialQ);
-  /** Debounced — drives filtering and URL updates. */
+  /** Debounced — drives API calls and URL updates. */
   const [searchQuery, setSearchQuery] = useState(initialQ);
   const [page, setPage] = useState(1);
+  const [items, setItems] = useState<Article[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -48,15 +59,64 @@ export default function Search() {
     router.replace(url, { scroll: false });
   }, [searchQuery, router, sp]);
 
-  const results = useMemo(() => {
-    if (searchQuery.length < 2) return [];
-    return searchArticles(published, searchQuery);
-  }, [published, searchQuery]);
+  useEffect(() => {
+    if (searchQuery.trim().length < PUBLIC_SEARCH_MIN_QUERY) {
+      setItems([]);
+      setTotal(0);
+      setTotalPages(1);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
-  const { items, totalPages } = useMemo(
-    () => paginateArticles(results, page, 12),
-    [results, page],
-  );
+    const requestId = ++requestIdRef.current;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    void (async () => {
+      try {
+        const params = new URLSearchParams({
+          q: searchQuery.trim(),
+          page: String(page),
+          limit: String(PUBLIC_SEARCH_PAGE_SIZE),
+        });
+        const res = await fetch(`/api/articles/search?${params}`, {
+          method: "GET",
+          credentials: "same-origin",
+          signal: controller.signal,
+        });
+        const data = (await res.json()) as SearchResponse;
+        if (requestId !== requestIdRef.current) return;
+
+        if (!res.ok) {
+          throw new Error(data.error || `Search failed (${res.status})`);
+        }
+
+        setItems(Array.isArray(data.articles) ? data.articles : []);
+        setTotal(typeof data.total === "number" ? data.total : 0);
+        setTotalPages(
+          Math.min(
+            Math.max(1, data.totalPages ?? 1),
+            PUBLIC_SEARCH_MAX_PAGE,
+          ),
+        );
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        if (requestId !== requestIdRef.current) return;
+        setItems([]);
+        setTotal(0);
+        setTotalPages(1);
+        setError(err instanceof Error ? err.message : "Search failed");
+      } finally {
+        if (requestId === requestIdRef.current) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => controller.abort();
+  }, [searchQuery, page]);
 
   const trending = useMemo(
     () => [
@@ -73,15 +133,16 @@ export default function Search() {
     setInput(value);
   }, []);
 
-  const isSearching = input.trim() !== searchQuery;
-  const showResults = searchQuery.length >= 2;
+  const isDebouncing = input.trim() !== searchQuery;
+  const showResults = searchQuery.length >= PUBLIC_SEARCH_MIN_QUERY;
+  const busy = loading || isDebouncing;
 
   return (
     <div className="min-h-screen bg-background pt-8 pb-20">
       <div className="editorial-container">
         <PageHeader
           title="Search"
-          description="Explore the Palawan Daily News archive."
+          description="Search the full published archive — titles, authors, and categories."
         />
 
         <div className="relative mb-14 border-b-2 border-border pb-5 flex items-center ">
@@ -109,20 +170,31 @@ export default function Search() {
           <div className="mb-14">
             <DividerLabel label="Results" />
 
-            {isSearching && (
-              <p className="text-sm text-muted-foreground mt-4">Searching…</p>
+            {busy && (
+              <p className="text-sm text-muted-foreground mt-4">
+                Searching the archive…
+              </p>
             )}
 
-            {!isSearching && !items.length && (
+            {!busy && error && (
+              <p className="text-sm text-destructive mt-4">{error}</p>
+            )}
+
+            {!busy && !error && !items.length && (
               <p className="text-sm text-muted-foreground mt-4">
                 No results for “{searchQuery}”.
               </p>
             )}
 
-            {!isSearching && items.length > 0 && (
+            {!busy && !error && items.length > 0 && (
               <>
+                <p className="mt-4 text-[12px] text-muted-foreground">
+                  {total.toLocaleString()}{" "}
+                  {total === 1 ? "story" : "stories"} matched
+                  {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ""}
+                </p>
                 <div className="mt-4 divide-y divide-border border-t border-border">
-                  {items.map((a: Article) => (
+                  {items.map((a) => (
                     <ArticleListRow
                       key={a.id}
                       article={a}
@@ -131,27 +203,31 @@ export default function Search() {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-center gap-3 mt-8">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1}
-                    className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
-                  >
-                    Prev
-                  </button>
-                  <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                    Page {page} of {totalPages}
+                {totalPages > 1 ? (
+                  <div className="flex items-center justify-center gap-3 mt-8">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page <= 1 || busy}
+                      className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
+                    >
+                      Prev
+                    </button>
+                    <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      Page {page} of {totalPages}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={page >= totalPages || busy}
+                      className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
+                    >
+                      Next
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => p + 1)}
-                    disabled={page >= totalPages}
-                    className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
-                  >
-                    Next
-                  </button>
-                </div>
+                ) : null}
               </>
             )}
           </div>

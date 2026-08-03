@@ -55,8 +55,7 @@ export function HomepageMidBanner() {
       {showLive ? (
         <AdUnit
           ad={ad}
-          aspectClass="aspect-[5/1]"
-          minHeightClass="min-h-[120px] sm:min-h-[160px]"
+          imageFit="natural"
           testId="homepage-mid-banner"
         />
       ) : (

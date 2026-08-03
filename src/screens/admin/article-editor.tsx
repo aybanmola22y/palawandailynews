@@ -568,7 +568,11 @@ export default function ArticleEditor() {
                   Write
                 </button>
                 <button
-                  onClick={() => setEditorMode("preview")}
+                  onClick={() => {
+                    const live = htmlEditorRef.current?.getHtml();
+                    if (live != null) setBodyHtml(live);
+                    setEditorMode("preview");
+                  }}
                   className={`flex items-center gap-1.5 px-4 py-2 text-[11px] font-bold uppercase tracking-wider transition-colors ${
                     editorMode === "preview"
                       ? "bg-white dark:bg-[#0F0F0E] text-foreground shadow-sm"
@@ -583,7 +587,10 @@ export default function ArticleEditor() {
               {editorMode === "write" && (
                 <div className="relative" ref={imageInsertRef}>
                   <button
-                    onClick={() => setShowImageInsert(!showImageInsert)}
+                    onClick={() => {
+                      htmlEditorRef.current?.saveSelection();
+                      setShowImageInsert(!showImageInsert);
+                    }}
                     className="flex items-center gap-2 px-4 py-2 border border-border text-[11px] font-bold uppercase tracking-wider hover:bg-muted transition-colors"
                   >
                     <Image className="w-3.5 h-3.5" />
@@ -638,7 +645,8 @@ export default function ArticleEditor() {
                         >
                           <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
                           <p className="text-[11px] text-muted-foreground">
-                            Drop image or click (uploads on Save / Publish)
+                            Drop image or click — uploads to Hostinger on Save /
+                            Publish
                           </p>
                           <input
                             ref={inlineFileInputRef}
@@ -697,7 +705,10 @@ export default function ArticleEditor() {
                     seedKey={htmlEditorSeedKey}
                     initialHtml={bodyHtml}
                     onChange={setBodyHtml}
-                    isEmpty={!bodyHtml.replace(/<[^>]+>/g, "").trim()}
+                    isEmpty={
+                      !bodyHtml.replace(/<[^>]+>/g, "").trim() &&
+                      !/<img\b/i.test(bodyHtml)
+                    }
                     placeholder="Click here and start writing your article…"
                   />
                 )}
