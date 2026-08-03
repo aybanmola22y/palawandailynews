@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useSearchParams, notFound } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Mail } from "lucide-react";
-import { useArticles } from "@/store/articles-context";
+import { useArticles, type Article } from "@/store/articles-context";
 import { useUsers } from "@/store/users-context";
 import { useStaff } from "@/store/staff-context";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
@@ -17,6 +17,7 @@ import {
   resolveAuthorNameBySlug,
   resolveAuthorPublicProfile,
 } from "@/lib/author-profile";
+import { withResolvedArticleImages } from "@/lib/articles/map-article-row";
 import { paginateArticles } from "@/lib/site-articles";
 import { cn } from "@/lib/utils";
 
@@ -70,7 +71,7 @@ export default function AuthorProfile() {
     [staff, authorName],
   );
 
-  const authorArticles = useMemo(
+  const bootstrapArticles = useMemo(
     () =>
       authorName
         ? getArticlesByAuthor(articles, authorName, { publishedOnly: true })
@@ -78,7 +79,46 @@ export default function AuthorProfile() {
     [articles, authorName],
   );
 
-  const publishedArticles = authorArticles;
+  const [remoteArticles, setRemoteArticles] = useState<Article[] | null>(null);
+  const [storiesLoading, setStoriesLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authorName) {
+      setRemoteArticles(null);
+      return;
+    }
+
+    let cancelled = false;
+    setStoriesLoading(true);
+    setRemoteArticles(null);
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/articles/by-author?name=${encodeURIComponent(authorName)}`,
+          {
+            method: "GET",
+            credentials: "same-origin",
+            cache: "no-store",
+          },
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as Article[];
+        if (cancelled || !Array.isArray(data)) return;
+        setRemoteArticles(withResolvedArticleImages(data));
+      } catch {
+        /* keep bootstrap slice from local articles context */
+      } finally {
+        if (!cancelled) setStoriesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authorName]);
+
+  const publishedArticles = remoteArticles ?? bootstrapArticles;
 
   const categories = useMemo(() => {
     const set = new Set<string>();
@@ -179,7 +219,9 @@ export default function AuthorProfile() {
             Published Articles
           </h2>
           <p className="mt-3 text-[15px] sm:text-base text-muted-foreground max-w-3xl leading-relaxed">
-            {publishedArticles.length > 0 ? (
+            {storiesLoading && !remoteArticles ? (
+              <>Loading published stories from {firstName}…</>
+            ) : publishedArticles.length > 0 ? (
               <>
                 {publishedArticles.length} published{" "}
                 {publishedArticles.length === 1 ? "story" : "stories"} from{" "}
@@ -198,7 +240,7 @@ export default function AuthorProfile() {
           </p>
         </header>
 
-        {publishedArticles.length === 0 ? (
+        {publishedArticles.length === 0 && !storiesLoading ? (
           <div className="rounded-lg border border-dashed border-border bg-card/60 py-20 text-center px-6">
             <p className="font-serif text-xl text-foreground">No stories yet</p>
             <p className="mt-2 text-sm text-muted-foreground max-w-md mx-auto">
@@ -262,7 +304,6 @@ export default function AuthorProfile() {
             ) : null}
           </>
         )}
-
       </div>
     </div>
   );

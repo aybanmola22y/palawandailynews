@@ -4,6 +4,10 @@ import type { ArticleRow } from "@/lib/supabase/database.types";
 import { rowToArticle } from "@/lib/articles/map-article-row";
 import { excerptToPlainText } from "@/lib/html-editor-content";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  getAuthorRawCandidates,
+  resolveAuthorDisplayName,
+} from "@/lib/author-resolve";
 
 export const ARTICLE_SUMMARY_SELECT =
   "id, title, excerpt, category, author, tags, date, reading_time, image_url, is_breaking, status, updated_at, legacy_wp_id, cms_origin";
@@ -207,6 +211,64 @@ export async function fetchPublishedOpinionSummaries(
     .filter((article) => {
       const cat = article.category.toLowerCase();
       return cat === "opinion" || cat === "column";
+    });
+}
+
+/** Cap for a single author archive page (covers prolific bylines without full corpus). */
+export const PUBLIC_AUTHOR_SUMMARY_LIMIT = 2000;
+
+/**
+ * Published summaries for one byline — queries Supabase by raw author variants
+ * (WP logins, aliases, display name) so author pages are not capped by the
+ * homepage bootstrap slice.
+ */
+export async function fetchPublishedSummariesByAuthor(
+  client: SupabaseClient<Database>,
+  authorName: string,
+  options: { limit?: number } = {},
+): Promise<Article[]> {
+  const name = authorName.trim();
+  if (!name) return [];
+
+  const candidates = [
+    ...new Set(
+      getAuthorRawCandidates(name)
+        .map((c) => c.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 40);
+
+  if (!candidates.length) return [];
+
+  const limit = Math.min(
+    Math.max(options.limit ?? PUBLIC_AUTHOR_SUMMARY_LIMIT, 1),
+    PUBLIC_AUTHOR_SUMMARY_LIMIT,
+  );
+  const select = PUBLIC_ARTICLE_SUMMARY_SELECT;
+  const targetDisplay = resolveAuthorDisplayName(name)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+  const { data, error } = await client
+    .from("articles")
+    .select(select)
+    .eq("status", "Published")
+    .in("author", candidates)
+    .order("date", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data ?? [])
+    .map((row) => rowToSummaryArticle(row as unknown as ArticleRow))
+    .filter((article) => {
+      const display = resolveAuthorDisplayName(article.author)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+      return display === targetDisplay;
     });
 }
 

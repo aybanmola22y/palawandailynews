@@ -5,11 +5,13 @@ import { PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT } from "@/lib/articles/load-public-sum
 export function revalidatePublicArticleSummaries() {
   revalidateTag("article-summaries");
   revalidateTag("article-opinion");
+  revalidateTag("article-by-author");
   revalidatePath("/api/articles/summaries");
   revalidatePath(
     `/api/articles/summaries?limit=${PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT}`,
   );
   revalidatePath("/api/articles/opinion");
+  revalidatePath("/api/articles/by-author");
   revalidatePath("/");
   revalidatePath("/latest");
   revalidatePath("/opinion");

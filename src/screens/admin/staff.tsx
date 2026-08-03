@@ -43,14 +43,60 @@ export default function AdminStaff() {
   const [form, setForm] = useState<ProfileFormState | null>(null);
   const [modal, setModal] = useState<"add" | "edit" | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [articleCounts, setArticleCounts] = useState<Record<string, number>>(
+    {},
+  );
 
-  const articlesByAuthor = useMemo(() => {
+  const bootstrapCounts = useMemo(() => {
     const map: Record<string, number> = {};
     articles.forEach((a) => {
       if (a.author) map[a.author] = (map[a.author] ?? 0) + 1;
     });
     return map;
   }, [articles]);
+
+  // Exact published counts from Supabase (not the admin bootstrap slice).
+  useEffect(() => {
+    if (!staff.length) {
+      setArticleCounts({});
+      return;
+    }
+
+    let cancelled = false;
+    const names = staff.map((s) => s.name.trim()).filter(Boolean);
+
+    void (async () => {
+      const entries = await Promise.all(
+        names.map(async (name) => {
+          try {
+            const res = await fetch(
+              `/api/authors/preview?name=${encodeURIComponent(name)}&limit=1`,
+              { credentials: "same-origin", cache: "no-store" },
+            );
+            if (!res.ok) return [name, null] as const;
+            const data = (await res.json()) as { totalCount?: number };
+            return [name, typeof data.totalCount === "number" ? data.totalCount : null] as const;
+          } catch {
+            return [name, null] as const;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const next: Record<string, number> = {};
+      for (const [name, count] of entries) {
+        if (count != null) next[name] = count;
+      }
+      setArticleCounts(next);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [staff]);
+
+  function publishedCountFor(name: string) {
+    return articleCounts[name] ?? bootstrapCounts[name] ?? 0;
+  }
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -193,7 +239,7 @@ export default function AdminStaff() {
         <AdminStatCard label="Staff profiles" value={staff.length} hint="Public author pages" />
         <AdminStatCard
           label="Active bylines"
-          value={Object.keys(articlesByAuthor).length}
+          value={Object.keys(bootstrapCounts).length}
           hint="Unique author names in articles"
           accent="success"
         />
@@ -201,7 +247,7 @@ export default function AdminStaff() {
           label="Most prolific"
           value={
             staff
-              .map((u) => ({ name: u.name, count: articlesByAuthor[u.name] ?? 0 }))
+              .map((u) => ({ name: u.name, count: publishedCountFor(u.name) }))
               .sort((a, b) => b.count - a.count)[0]?.count ?? 0
           }
           hint="Top author article count"
@@ -253,7 +299,7 @@ export default function AdminStaff() {
                 </tr>
               )}
               {pageStaff.map((member) => {
-                const articleCount = articlesByAuthor[member.name] ?? 0;
+                const articleCount = publishedCountFor(member.name);
                 const adminUser = users.find(
                   (u) =>
                     u.name.trim().toLowerCase() === member.name.trim().toLowerCase(),

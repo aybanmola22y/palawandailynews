@@ -29,7 +29,103 @@ const STORAGE_KEY = "pdn_staff";
 const STORAGE_VERSION = "v1";
 const VERSION_KEY = "pdn_staff_version";
 const STAFF_API_CACHE_KEY = "pdn_staff_api_cache";
+/** Names explicitly removed in admin — do not resurrect from seeds. */
+const REMOVED_SEED_NAMES_KEY = "pdn_staff_removed_seed_names_v1";
 const STAFF_CACHE_TTL_MS = 2 * 60 * 60 * 1000;
+
+function readRemovedSeedNames(): Set<string> {
+  try {
+    const raw = localStorage.getItem(REMOVED_SEED_NAMES_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(
+      parsed
+        .map((n) => String(n ?? "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function writeRemovedSeedNames(names: Set<string>) {
+  try {
+    localStorage.setItem(
+      REMOVED_SEED_NAMES_KEY,
+      JSON.stringify([...names].sort()),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+function rememberRemovedSeedName(name: string) {
+  const key = name.trim().toLowerCase();
+  if (!key) return;
+  const next = readRemovedSeedNames();
+  next.add(key);
+  writeRemovedSeedNames(next);
+}
+
+function forgetRemovedSeedName(name: string) {
+  const key = name.trim().toLowerCase();
+  if (!key) return;
+  const next = readRemovedSeedNames();
+  if (!next.delete(key)) return;
+  writeRemovedSeedNames(next);
+}
+
+/** One-time: stop resurrecting the old hardcoded demo columnists. */
+function purgeLegacyDummyColumnists() {
+  try {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("pdn_purged_dummy_columnists_v1") === "1") return;
+    const next = readRemovedSeedNames();
+    next.add("dr. antonio bautista");
+    next.add("atty. victoria lim");
+    writeRemovedSeedNames(next);
+    localStorage.setItem("pdn_purged_dummy_columnists_v1", "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Platform operators — CMS-only, never public staff. */
+const PLATFORM_OPERATOR_NAMES = new Set([
+  "john aivanne molato",
+  "joseph baria",
+]);
+
+/** One-time: keep John/Joseph off the public staff roster. */
+function purgePlatformOperatorsFromStaff() {
+  try {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("pdn_purged_platform_operators_from_staff_v1") === "1") {
+      return;
+    }
+    const next = readRemovedSeedNames();
+    for (const name of PLATFORM_OPERATOR_NAMES) next.add(name);
+    writeRemovedSeedNames(next);
+    localStorage.setItem("pdn_purged_platform_operators_from_staff_v1", "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+function isPlatformOperatorName(name: string): boolean {
+  return PLATFORM_OPERATOR_NAMES.has(name.trim().toLowerCase());
+}
+
+function withoutPlatformOperators(list: StaffProfile[]): StaffProfile[] {
+  return list.filter((s) => !isPlatformOperatorName(s.name));
+}
+
+function isPersistedStaffId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    id.trim(),
+  );
+}
 
 function withDefaults(
   entry: Omit<StaffProfile, "updatedAt" | "avatar" | "profileTitle" | "quote" | "bio" | "badgeLabel"> &
@@ -51,18 +147,26 @@ function withDefaults(
 function mergeWithSeed(stored: StaffProfile[], seed: StaffProfile[]) {
   const merged: StaffProfile[] = [];
   const byName = new Map<string, StaffProfile>();
+  const removed = readRemovedSeedNames();
 
   for (const s of stored) byName.set(s.name.trim().toLowerCase(), s);
 
   for (const seedEntry of seed) {
     const key = seedEntry.name.trim().toLowerCase();
+    if (removed.has(key)) {
+      byName.delete(key);
+      continue;
+    }
     const existing = byName.get(key);
     merged.push(existing ? { ...seedEntry, ...existing } : seedEntry);
     byName.delete(key);
   }
 
   // Append extra stored staff not in seed
-  for (const extra of byName.values()) merged.push(extra);
+  for (const extra of byName.values()) {
+    if (removed.has(extra.name.trim().toLowerCase())) continue;
+    merged.push(extra);
+  }
 
   return merged;
 }
@@ -166,7 +270,9 @@ export function StaffProvider({
 }) {
   const seedByName = new Map<string, StaffProfile>();
 
+  // Editorial staff from Admin Users — except platform operators (John / Joseph).
   for (const u of seedFromUsers) {
+    if (isPlatformOperatorName(u.name)) continue;
     const entry = withDefaults(
       {
         id: `S-${u.id}`,
@@ -188,7 +294,7 @@ export function StaffProvider({
     const name = a.author?.trim();
     if (!name) continue;
     const key = name.toLowerCase();
-    if (seedByName.has(key)) continue;
+    if (isPlatformOperatorName(name) || seedByName.has(key)) continue;
     seedByName.set(
       key,
       withDefaults({
@@ -203,7 +309,7 @@ export function StaffProvider({
     const name = c.name?.trim();
     if (!name) continue;
     const key = name.toLowerCase();
-    if (seedByName.has(key)) continue;
+    if (isPlatformOperatorName(name) || seedByName.has(key)) continue;
     seedByName.set(
       key,
       withDefaults({
@@ -234,20 +340,22 @@ export function StaffProvider({
     .sort((a, b) => a.name.localeCompare(b.name));
   const seedKeyStr = JSON.stringify(seedKey);
 
-  const [staff, setStaff] = useState<StaffProfile[]>(seed);
+  const [staff, setStaff] = useState<StaffProfile[]>(() => {
+    purgeLegacyDummyColumnists();
+    purgePlatformOperatorsFromStaff();
+    return withoutPlatformOperators(mergeWithSeed([], seed));
+  });
   const hydrated = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    purgeLegacyDummyColumnists();
+    purgePlatformOperatorsFromStaff();
 
     async function run() {
       const cached = readStaffApiCache();
-      if (cached?.length) {
-        if (!cancelled) {
-          setStaff(mergeWithSeed(cached, seed));
-          hydrated.current = true;
-        }
-        return;
+      if (cached?.length && !cancelled) {
+        setStaff(withoutPlatformOperators(mergeWithSeed(cached, seed)));
       }
 
       try {
@@ -255,16 +363,18 @@ export function StaffProvider({
         if (cancelled) return;
 
         if (!remote?.length) {
-          setStaff(loadStaff(seed));
+          setStaff(withoutPlatformOperators(loadStaff(seed)));
         } else {
-          const merged = mergeWithSeed(remote, seed);
+          const merged = withoutPlatformOperators(mergeWithSeed(remote, seed));
           setStaff(merged);
           writeStaffApiCache(merged);
         }
         hydrated.current = true;
       } catch {
         if (cancelled) return;
-        setStaff(loadStaff(seed));
+        if (!cached?.length) {
+          setStaff(withoutPlatformOperators(loadStaff(seed)));
+        }
         hydrated.current = true;
       }
     }
@@ -273,9 +383,17 @@ export function StaffProvider({
     return () => {
       cancelled = true;
     };
-    // Intentionally run once; Supabase is the source of truth.
+    // Intentionally run once; seed changes are handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // When Admin Users / bylines load after first paint, merge them into Staff
+  // without resurrecting removed seeds or platform operators.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    setStaff((prev) => withoutPlatformOperators(mergeWithSeed(prev, seed)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedKeyStr]);
 
   async function addStaff(
     entry: Omit<StaffProfile, "id" | "updatedAt" | "avatar">,
@@ -298,6 +416,7 @@ export function StaffProvider({
     }
 
     const saved = (await res.json()) as StaffProfile;
+    forgetRemovedSeedName(saved.name);
     setStaff((prev) => {
       const next = prev.map((s) => (s.id === tempId ? saved : s));
       writeStaffApiCache(next);
@@ -358,7 +477,19 @@ export function StaffProvider({
 
   async function deleteStaff(id: string) {
     const previous = staff;
-    setStaff((prev) => prev.filter((s) => s.id !== id));
+    const member = previous.find((s) => s.id === id);
+    const next = previous.filter((s) => s.id !== id);
+    setStaff(next);
+
+    if (member?.name) {
+      rememberRemovedSeedName(member.name);
+    }
+
+    // Seed-only rows (S-col-… / S-byline-…) are not Supabase UUIDs — remove locally.
+    if (!isPersistedStaffId(id)) {
+      writeStaffApiCache(next);
+      return;
+    }
 
     const res = await fetch(`/api/admin/staff-profiles/${encodeURIComponent(id)}`, {
       method: "DELETE",
@@ -366,25 +497,26 @@ export function StaffProvider({
     });
 
     if (!res.ok) {
+      if (member?.name) forgetRemovedSeedName(member.name);
       setStaff(previous);
       const text = await res.text().catch(() => "");
       throw new Error(text || "Failed to delete staff profile");
     }
 
-    setStaff((prev) => {
-      writeStaffApiCache(prev);
-      return prev;
-    });
+    writeStaffApiCache(next);
   }
+
+  // Keep John / Joseph off Staff even if they appear in cache or bylines.
+  const visibleStaff = withoutPlatformOperators(staff);
 
   function findStaffByName(name: string) {
     const target = name.trim().toLowerCase();
-    return staff.find((s) => s.name.trim().toLowerCase() === target);
+    return visibleStaff.find((s) => s.name.trim().toLowerCase() === target);
   }
 
   return (
     <StaffContext.Provider
-      value={{ staff, addStaff, updateStaff, deleteStaff, findStaffByName }}
+      value={{ staff: visibleStaff, addStaff, updateStaff, deleteStaff, findStaffByName }}
     >
       {children}
     </StaffContext.Provider>

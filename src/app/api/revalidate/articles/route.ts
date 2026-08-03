@@ -28,12 +28,14 @@ export async function POST(request: NextRequest) {
 
   revalidateTag("article-summaries");
   revalidateTag("article-opinion");
+  revalidateTag("article-by-author");
   revalidateTag("ads");
   revalidatePath("/api/articles/summaries");
   revalidatePath(
     `/api/articles/summaries?limit=${PUBLIC_SUMMARIES_BOOTSTRAP_LIMIT}`,
   );
   revalidatePath("/api/articles/opinion");
+  revalidatePath("/api/articles/by-author");
   revalidatePath("/api/ads");
   revalidatePath("/");
   revalidatePath("/latest");
