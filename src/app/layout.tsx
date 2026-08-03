@@ -4,6 +4,7 @@ import "../index.css";
 import { Providers } from "./providers";
 import { LenisRoot } from "@/components/layout/LenisRoot";
 import { SmoothScroll } from "@/components/layout/SmoothScroll";
+import { getSiteUrl } from "@/lib/site-url";
 
 const dmSans = DM_Sans({
   subsets: ["latin"],
@@ -19,9 +20,38 @@ const dmSerif = DM_Serif_Display({
   weight: ["400"],
 });
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
-  title: "Palawan Daily News",
-  description: "Palawan Daily News",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Palawan Daily News",
+    template: "%s | Palawan Daily News",
+  },
+  description:
+    "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_PH",
+    url: siteUrl,
+    siteName: "Palawan Daily News",
+    title: "Palawan Daily News",
+    description:
+      "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Palawan Daily News",
+    description:
+      "Independent news from Palawan — city and provincial news, opinion, lifestyle, and public notices.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
