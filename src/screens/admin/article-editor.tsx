@@ -229,15 +229,23 @@ export default function ArticleEditor() {
     loadedArticleKeyRef.current = loadKey;
   }, [existing, isEdit, existing?.content, articles]);
 
+  // Only revoke the previous hero blob when it changes — never touch inline body images.
   useEffect(() => {
     return () => {
       revokePendingBlobUrl(heroPreviewUrl);
-      for (const url of pendingFilesRef.current.keys()) {
-        revokePendingBlobUrl(url);
-      }
-      pendingFilesRef.current.clear();
     };
   }, [heroPreviewUrl]);
+
+  // Revoke leftover inline draft blobs when leaving the editor.
+  useEffect(() => {
+    const pendingFiles = pendingFilesRef.current;
+    return () => {
+      for (const url of pendingFiles.keys()) {
+        revokePendingBlobUrl(url);
+      }
+      pendingFiles.clear();
+    };
+  }, []);
 
   const heroDisplaySrc =
     heroPreviewUrl || (form.image.startsWith("blob:") ? "" : form.image);
