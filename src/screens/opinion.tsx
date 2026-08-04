@@ -129,14 +129,6 @@ function OpinionMasthead({
 }) {
   return (
     <header className="relative mb-10 overflow-hidden border border-border bg-card">
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.04]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(-12deg, transparent, transparent 11px, currentColor 11px, currentColor 12px)",
-        }}
-        aria-hidden
-      />
       <div className="relative grid gap-8 p-6 md:p-10 lg:grid-cols-[1fr_auto] lg:items-end">
         <div className="max-w-2xl">
           <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-primary">

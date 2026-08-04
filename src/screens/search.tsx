@@ -216,26 +216,31 @@ export default function Search() {
         </div>
 
         <div className="mb-10 flex flex-wrap gap-2">
-          {TOPIC_CHIPS.map((chip) =>
-            chip.action.type === "link" ? (
-              <Link
-                key={chip.label}
-                href={chip.action.href}
-                className="rounded-sm border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
-              >
-                {chip.label}
-              </Link>
-            ) : (
+          {TOPIC_CHIPS.map((chip) => {
+            if (chip.action.type === "link") {
+              return (
+                <Link
+                  key={chip.label}
+                  href={chip.action.href}
+                  className="rounded-sm border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                >
+                  {chip.label}
+                </Link>
+              );
+            }
+
+            const query = chip.action.q;
+            return (
               <button
                 key={chip.label}
                 type="button"
-                onClick={() => setSearchInput(chip.action.q)}
+                onClick={() => setSearchInput(query)}
                 className="rounded-sm border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
               >
                 {chip.label}
               </button>
-            ),
-          )}
+            );
+          })}
         </div>
 
         {showResults ? (
