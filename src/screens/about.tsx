@@ -13,8 +13,11 @@ import {
   Users,
   Quote,
   CheckCircle2,
+  ArrowUpRight,
+  Check,
 } from "lucide-react";
 import { authorProfilePath } from "@/lib/author-profile";
+import { cn } from "@/lib/utils";
 
 const OWNERSHIP_AND_FUNDING = [
   "Palawan Daily News is a quad media publishing company owned and published by Alpha Eight Publishing, a registered company in the Philippines through its Department of Trade Industry and the Bureau of Internal Revenue.",
@@ -37,21 +40,25 @@ const TEAM = [
     name: "Harthwell Capistrano",
     role: "Editor-in-Chief",
     bio: "Leads the newsroom’s editorial direction and standards.",
+    accent: "from-[#E8D8D2] via-[#F4EEEA] to-[#EDE6E0]",
   },
   {
     name: "Hanna Camella Talabucon",
     role: "Associate Editor",
     bio: "Edits and reports on public-interest stories across Palawan and MIMAROPA.",
+    accent: "from-[#D7E0E8] via-[#EEF2F5] to-[#E4E9EE]",
   },
   {
     name: "Gerardo Reyes Jr.",
     role: "Staff Reporter",
     bio: "Covers governance, community issues, and breaking updates.",
+    accent: "from-[#D9E4D8] via-[#EEF3EC] to-[#E3EBE2]",
   },
   {
     name: "Lance Factor",
     role: "Head of Digital",
     bio: "Product, distribution, and newsroom systems for digital publishing.",
+    accent: "from-[#E4D8E4] via-[#F3EDF3] to-[#EBE4EB]",
   },
 ] as const;
 
@@ -270,64 +277,101 @@ export default function About() {
           </div>
         </section>
 
-        <section className="mt-10 relative overflow-hidden rounded-sm border border-border bg-gradient-to-br from-[#FBF9F6] via-card to-[#F3F0EC] dark:from-[#161614] dark:via-[#1A1A18] dark:to-[#121210]">
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 12% 18%, rgba(196,30,58,0.08), transparent 42%)",
-            }}
-            aria-hidden
-          />
+        <section className="mt-10">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+              <Users className="h-3.5 w-3.5" />
+              Who we are
+            </span>
+            <h2 className="mt-5 font-serif text-3xl md:text-4xl leading-[1.1] tracking-tight text-foreground">
+              A small team, focused on reporting.
+            </h2>
+            <p className="mt-4 text-[15px] md:text-base leading-relaxed text-muted-foreground">
+              We’re a compact newsroom—built for speed when it matters, and depth when
+              it counts.
+            </p>
+          </div>
 
-          <div className="relative p-6 md:p-10 lg:p-12">
-            <div className="max-w-2xl">
-              <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
-                <Users className="h-3.5 w-3.5" />
-                Who we are
-              </span>
-              <h2 className="mt-5 font-serif text-3xl md:text-4xl leading-[1.1] tracking-tight text-foreground">
-                A small team, focused on reporting.
-              </h2>
-              <p className="mt-4 text-[15px] md:text-base leading-relaxed text-muted-foreground">
-                We’re a compact newsroom—built for speed when it matters, and depth when
-                it counts.
-              </p>
-            </div>
+          <div className="mt-10 md:mt-12 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
+            {TEAM.map((m, index) => {
+              const profileHref = `${authorProfilePath(m.name)}?name=${encodeURIComponent(m.name)}`;
 
-            <div className="mt-10 md:mt-12 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-border/80 rounded-sm overflow-hidden border border-border/80">
-              {TEAM.map((m, index) => (
-                <Link
+              return (
+                <article
                   key={m.name}
-                  href={authorProfilePath(m.name)}
-                  className="group relative bg-card/95 dark:bg-[#1A1A18] p-6 md:p-7 flex flex-col min-h-[240px] transition-colors duration-300 hover:bg-white dark:hover:bg-[#1F1F1C]"
+                  className="group flex flex-col rounded-[28px] border border-border bg-card p-3 text-foreground shadow-[0_12px_40px_-28px_rgba(30,24,18,0.35)] transition-transform duration-300 hover:-translate-y-1"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <Link
+                    href={profileHref}
+                    prefetch={false}
+                    className="relative block aspect-[4/5] overflow-hidden rounded-[22px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    aria-label={`${m.name} portrait`}
+                  >
                     <div
-                      className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2A2420] text-white font-serif text-lg tracking-wide"
+                      className={cn(
+                        "absolute inset-0 bg-gradient-to-br",
+                        m.accent,
+                      )}
                       aria-hidden
-                    >
-                      {teamInitials(m.name)}
-                    </div>
-                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground/70">
+                    />
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-50"
+                      style={{
+                        backgroundImage:
+                          "radial-gradient(ellipse 70% 55% at 50% 20%, rgba(255,255,255,0.55), transparent 60%)",
+                      }}
+                      aria-hidden
+                    />
+                    <span className="absolute left-4 top-4 font-mono text-[11px] font-semibold tracking-wider text-foreground/35">
                       {String(index + 1).padStart(2, "0")}
                     </span>
-                  </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="font-serif text-5xl tracking-wide text-foreground/80 md:text-6xl">
+                        {teamInitials(m.name)}
+                      </span>
+                    </div>
+                  </Link>
 
-                  <div className="mt-6 flex-1">
-                    <h3 className="font-serif text-xl leading-snug text-foreground transition-colors group-hover:text-primary">
-                      {m.name}
-                    </h3>
-                    <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                  <div className="flex flex-1 flex-col px-2.5 pb-2.5 pt-4">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <Link
+                        href={profileHref}
+                        prefetch={false}
+                        className="truncate text-center font-semibold text-[17px] leading-tight tracking-tight text-foreground transition-colors hover:text-primary"
+                      >
+                        {m.name}
+                      </Link>
+                      <span
+                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500"
+                        aria-label="Verified staff"
+                      >
+                        <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-center text-[13px] leading-snug text-muted-foreground">
                       {m.role}
                     </p>
-                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                    <p className="mt-3 line-clamp-3 text-center text-[13px] leading-relaxed text-muted-foreground">
                       {m.bio}
                     </p>
+
+                    <div className="mt-5 flex items-center justify-between gap-3">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                        Newsroom
+                      </span>
+                      <Link
+                        href={profileHref}
+                        prefetch={false}
+                        className="inline-flex items-center gap-1 rounded-full bg-secondary px-3.5 py-1.5 text-[12px] font-semibold text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                      >
+                        Profile
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
                   </div>
-                </Link>
-              ))}
-            </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       </div>
