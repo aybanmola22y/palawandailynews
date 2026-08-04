@@ -36,6 +36,14 @@ export const metadata: Metadata = {
   },
   description: DEFAULT_DESCRIPTION,
   applicationName: SITE_NAME,
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
+    shortcut: "/favicon.ico",
+  },
   alternates: {
     canonical: "/",
   },
