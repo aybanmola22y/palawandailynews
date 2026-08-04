@@ -46,7 +46,8 @@ export function AdUnit({
   const content = (
     <div
       className={cn(
-        "relative w-full overflow-hidden rounded-sm border border-border bg-muted group",
+        "relative w-full overflow-hidden rounded-sm border border-border group leading-none",
+        !natural && "bg-muted",
         fillHeight && "h-full min-h-0 flex-1",
       )}
     >
@@ -70,12 +71,12 @@ export function AdUnit({
             alt={ad.altText || `${ad.client} advertisement`}
             className={cn(
               "h-full w-full transition-opacity group-hover:opacity-95",
-              imageFit === "contain" ? "object-contain" : "object-cover",
+              imageFit === "contain" ? "object-contain" : "object-cover object-center",
             )}
           />
         </div>
       )}
-      <span className="absolute top-3 right-3 px-2 py-0.5 bg-black/50 text-white text-[9px] uppercase tracking-[0.2em] font-bold">
+      <span className="absolute top-2 right-2 px-2 py-0.5 bg-black/50 text-white text-[9px] uppercase tracking-[0.2em] font-bold">
         Advertisement
       </span>
     </div>
@@ -103,7 +104,7 @@ export function AdUnit({
         <div className={linkClass}>{content}</div>
       )}
       {ad.client && (
-        <p className="mt-2 shrink-0 text-[10px] uppercase tracking-[0.15em] text-muted-foreground text-center">
+        <p className="mt-1.5 shrink-0 text-[10px] uppercase tracking-[0.15em] text-muted-foreground text-center">
           {ad.client}
         </p>
       )}

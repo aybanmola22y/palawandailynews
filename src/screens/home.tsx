@@ -95,9 +95,9 @@ export default function Home() {
   const ready = published.length > 0;
 
   return (
-    <div className="min-h-screen pt-[76px]">
+    <div className="min-h-screen">
       <HeaderAdBanner />
-      <div className="editorial-container py-8 md:py-12">
+      <div className="editorial-container pt-4 pb-8 md:pt-6 md:pb-12">
         {!ready && loading && (
           <div className="mb-8 animate-pulse space-y-6" aria-hidden>
             <div className="aspect-3/2 max-w-3xl rounded-sm bg-muted" />
