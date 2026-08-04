@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { Facebook, Twitter, Linkedin, Link as LinkIcon } from "lucide-react";
 import { useArticles } from "@/store/articles-context";
 import { useReadingProgress } from "@/hooks/use-reading-progress";
 import type { Article } from "@/types/article";
@@ -22,6 +21,7 @@ import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { DividerLabel } from "@/components/editorial/DividerLabel";
 import { ArticleDetailHeader } from "@/components/editorial/ArticleDetailHeader";
 import { ArticleTags } from "@/components/editorial/ArticleTags";
+import { ArticleShareButtons } from "@/components/editorial/ArticleShareButtons";
 import { PageShell } from "@/components/editorial/PageShell";
 import { SidebarPanel } from "@/components/editorial/SidebarPanel";
 import { usePopularNewsArticles } from "@/hooks/use-popular-news-articles";
@@ -312,36 +312,11 @@ export default function ArticleDetail() {
               </aside>
             )}
 
-            <div className="mt-12 pt-8 border-t border-border flex gap-4">
-              <button
-                type="button"
-                className="p-2 border border-border rounded-sm hover:border-primary transition-colors"
-                aria-label="Share on Facebook"
-              >
-                <Facebook className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border border-border rounded-sm hover:border-primary transition-colors"
-                aria-label="Share on Twitter"
-              >
-                <Twitter className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border border-border rounded-sm hover:border-primary transition-colors"
-                aria-label="Share on LinkedIn"
-              >
-                <Linkedin className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 border border-border rounded-sm hover:border-primary transition-colors"
-                aria-label="Copy link"
-              >
-                <LinkIcon className="h-4 w-4" />
-              </button>
-            </div>
+            <ArticleShareButtons
+              articleId={article.id}
+              title={article.title}
+              className="mt-12 pt-8 border-t border-border"
+            />
           </div>
 
           {related.length > 0 && (

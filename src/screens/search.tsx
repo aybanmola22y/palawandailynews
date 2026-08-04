@@ -1,12 +1,17 @@
 "use client";
 
-import { Search as SearchIcon, X } from "lucide-react";
+import Link from "next/link";
+import { ArrowUpRight, Search as SearchIcon, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { PageHeader } from "@/components/editorial/PageHeader";
-import { DividerLabel } from "@/components/editorial/DividerLabel";
+import { PageShell } from "@/components/editorial/PageShell";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
+import { PopularNewsSidebar } from "@/components/editorial/PopularNewsSidebar";
+import { SidebarPanel } from "@/components/editorial/SidebarPanel";
+import { usePopularNewsArticles } from "@/hooks/use-popular-news-articles";
 import { sanitizeSearchQuery } from "@/lib/security/safe-url";
+import { cn } from "@/lib/utils";
 import {
   PUBLIC_SEARCH_MAX_PAGE,
   PUBLIC_SEARCH_MIN_QUERY,
@@ -20,14 +25,61 @@ const SEARCH_DEBOUNCE_MS = 450;
 
 type SearchResponse = PublishedSearchResult & { query?: string; error?: string };
 
+const TOPIC_CHIPS = [
+  { label: "Environment", action: { type: "link", href: "/latest?topic=Environment" } },
+  { label: "Business", action: { type: "link", href: "/latest?topic=Business" } },
+  { label: "Politics", action: { type: "query", q: "Politics" } },
+  { label: "Lifestyle", action: { type: "link", href: "/lifestyle" } },
+  { label: "Opinion", action: { type: "link", href: "/opinion" } },
+  { label: "Legal", action: { type: "link", href: "/legal" } },
+] as const;
+
+const SECTION_LINKS = [
+  { label: "Latest News", href: "/latest" },
+  { label: "Opinion", href: "/opinion" },
+  { label: "Lifestyle", href: "/lifestyle" },
+  { label: "Legal notices", href: "/legal" },
+] as const;
+
+function SearchSidebar({ popular }: { popular: Article[] }) {
+  return (
+    <div className="flex flex-col gap-10 xl:sticky xl:top-24 xl:self-start">
+      <SidebarPanel title="Popular stories">
+        {popular.length > 0 ? (
+          <PopularNewsSidebar articles={popular.slice(0, 6)} variant="wide" />
+        ) : (
+          <p className="text-sm text-muted-foreground">Loading stories…</p>
+        )}
+      </SidebarPanel>
+
+      <SidebarPanel title="Browse">
+        <nav aria-label="Site sections">
+          <ul className="divide-y divide-border">
+            {SECTION_LINKS.map((item) => (
+              <li key={item.label}>
+                <Link
+                  href={item.href}
+                  className="group flex items-center justify-between gap-3 py-3 text-[15px] text-foreground/85 transition-colors hover:text-primary"
+                >
+                  <span>{item.label}</span>
+                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-primary" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      </SidebarPanel>
+    </div>
+  );
+}
+
 export default function Search() {
   const router = useRouter();
   const sp = useSearchParams();
   const initialQ = sanitizeSearchQuery(sp.get("q") ?? "");
+  const popular = usePopularNewsArticles();
 
-  /** Immediate — keeps typing responsive. */
   const [input, setInput] = useState(initialQ);
-  /** Debounced — drives API calls and URL updates. */
   const [searchQuery, setSearchQuery] = useState(initialQ);
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<Article[]>([]);
@@ -118,19 +170,9 @@ export default function Search() {
     return () => controller.abort();
   }, [searchQuery, page]);
 
-  const trending = useMemo(
-    () => [
-      "El Nido Development",
-      "Local Elections 2026",
-      "Climate Change Initiatives",
-      "Puerto Princesa Tech Hub",
-      "Palawan Tourism Guidelines",
-    ],
-    [],
-  );
-
   const setSearchInput = useCallback((value: string) => {
     setInput(value);
+    inputRef.current?.focus();
   }, []);
 
   const isDebouncing = input.trim() !== searchQuery;
@@ -139,61 +181,98 @@ export default function Search() {
 
   return (
     <div className="min-h-screen bg-background pt-8 pb-20">
-      <div className="editorial-container">
+      <PageShell layout="wideSidebar" sidebar={<SearchSidebar popular={popular} />}>
         <PageHeader
           title="Search"
-          description="Search the full published archive — titles, authors, and categories."
+          description="Search the published archive by title, author, or category."
         />
 
-        <div className="relative mb-14 border-b-2 border-border pb-5 flex items-center ">
-          <SearchIcon className="w-8 h-8 text-muted-foreground shrink-0 mr-4" />
+        <div className="relative mb-6">
+          <SearchIcon
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
           <input
             ref={inputRef}
-            type="text"
-            placeholder="Search the archive..."
+            type="search"
+            placeholder="Search stories, authors, topics…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            className="w-full bg-transparent text-3xl md:text-4xl lg:text-5xl font-serif outline-none placeholder:text-muted-foreground/40 text-foreground"
+            className="w-full border border-border bg-card py-3.5 pl-10 pr-11 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+            aria-label="Search the archive"
+            autoComplete="off"
+            spellCheck={false}
           />
-          {input && (
+          {input ? (
             <button
+              type="button"
               onClick={() => setInput("")}
-              className="p-2 hover:bg-secondary rounded-sm transition-colors shrink-0 ml-4"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               aria-label="Clear search"
             >
-              <X className="w-7 h-7 text-foreground" />
+              <X className="h-4 w-4" />
             </button>
+          ) : null}
+        </div>
+
+        <div className="mb-10 flex flex-wrap gap-2">
+          {TOPIC_CHIPS.map((chip) =>
+            chip.action.type === "link" ? (
+              <Link
+                key={chip.label}
+                href={chip.action.href}
+                className="rounded-sm border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                {chip.label}
+              </Link>
+            ) : (
+              <button
+                key={chip.label}
+                type="button"
+                onClick={() => setSearchInput(chip.action.q)}
+                className="rounded-sm border border-border bg-card px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+              >
+                {chip.label}
+              </button>
+            ),
           )}
         </div>
 
-        {showResults && (
-          <div className="mb-14">
-            <DividerLabel label="Results" />
-
-            {busy && (
-              <p className="text-sm text-muted-foreground mt-4">
-                Searching the archive…
-              </p>
-            )}
-
-            {!busy && error && (
-              <p className="text-sm text-destructive mt-4">{error}</p>
-            )}
-
-            {!busy && !error && !items.length && (
-              <p className="text-sm text-muted-foreground mt-4">
-                No results for “{searchQuery}”.
-              </p>
-            )}
-
-            {!busy && !error && items.length > 0 && (
-              <>
-                <p className="mt-4 text-[12px] text-muted-foreground">
+        {showResults ? (
+          <section aria-live="polite">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-border pb-3">
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                Results
+              </h2>
+              {!busy && !error && items.length > 0 ? (
+                <p className="text-[12px] text-muted-foreground">
                   {total.toLocaleString()}{" "}
-                  {total === 1 ? "story" : "stories"} matched
+                  {total === 1 ? "story" : "stories"}
                   {totalPages > 1 ? ` · page ${page} of ${totalPages}` : ""}
                 </p>
-                <div className="mt-4 divide-y divide-border border-t border-border">
+              ) : null}
+            </div>
+
+            {busy ? (
+              <p className="py-8 text-sm text-muted-foreground">
+                Searching the archive…
+              </p>
+            ) : null}
+
+            {!busy && error ? (
+              <p className="py-8 text-sm text-destructive">{error}</p>
+            ) : null}
+
+            {!busy && !error && !items.length ? (
+              <p className="py-8 text-sm text-muted-foreground">
+                No results for “{searchQuery}”. Try another keyword or clear the
+                search.
+              </p>
+            ) : null}
+
+            {!busy && !error && items.length > 0 ? (
+              <>
+                <div className="divide-y divide-border border-t border-border">
                   {items.map((a) => (
                     <ArticleListRow
                       key={a.id}
@@ -204,84 +283,62 @@ export default function Search() {
                 </div>
 
                 {totalPages > 1 ? (
-                  <div className="flex items-center justify-center gap-3 mt-8">
-                    <button
-                      type="button"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page <= 1 || busy}
-                      className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
-                    >
-                      Prev
-                    </button>
-                    <div className="text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-                      Page {page} of {totalPages}
+                  <div className="mt-8 flex items-center justify-between gap-4 border-t border-border pt-8">
+                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                      Page{" "}
+                      <span className="font-semibold text-foreground">{page}</span>{" "}
+                      of{" "}
+                      <span className="font-semibold text-foreground">
+                        {totalPages}
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page <= 1 || busy}
+                        className={cn(
+                          "rounded-sm border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors",
+                          page <= 1 || busy
+                            ? "cursor-not-allowed border-border opacity-50"
+                            : "border-border hover:border-foreground/30",
+                        )}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
+                        disabled={page >= totalPages || busy}
+                        className={cn(
+                          "rounded-sm border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] transition-colors",
+                          page >= totalPages || busy
+                            ? "cursor-not-allowed border-border opacity-50"
+                            : "border-border hover:border-foreground/30",
+                        )}
+                      >
+                        Next
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                      disabled={page >= totalPages || busy}
-                      className="px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] border border-border rounded-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-colors"
-                    >
-                      Next
-                    </button>
                   </div>
                 ) : null}
               </>
-            )}
-          </div>
+            ) : null}
+          </section>
+        ) : (
+          <section className="rounded-sm border border-dashed border-border bg-secondary/30 px-6 py-12 text-center sm:px-10">
+            <p className="font-serif text-xl text-foreground">
+              Type a keyword to search the archive
+            </p>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+              Results appear here. Use the topic chips above, or browse popular
+              stories and sections on the right.
+            </p>
+          </section>
         )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-16">
-          <div>
-            <h3 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-6">
-              Trending searches
-            </h3>
-            <ul className="flex flex-col gap-4">
-              {trending.map((item, i) => (
-                <li
-                  key={i}
-                  className="flex items-center gap-3 text-foreground hover:text-primary cursor-pointer transition-colors font-serif text-xl md:text-2xl"
-                  onClick={() => setSearchInput(item)}
-                >
-                  <span className="w-1.5 h-1.5 bg-primary shrink-0 rounded-full" />
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-[11px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-6">
-              Browse categories
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                "Environment",
-                "Politics",
-                "Business",
-                "Lifestyle",
-                "Technology",
-                "Opinion",
-              ].map((cat) => (
-                <div
-                  key={cat}
-                  className="flex items-center justify-between border border-border rounded-sm px-4 py-3.5 group cursor-pointer hover:border-primary hover:bg-secondary/50 transition-colors"
-                  onClick={() => setSearchInput(cat)}
-                >
-                  <span className="font-medium text-sm uppercase tracking-widest text-foreground group-hover:text-primary transition-colors">
-                    {cat}
-                  </span>
-                  <span className="text-muted-foreground group-hover:text-primary transition-colors">
-                    →
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      </PageShell>
     </div>
   );
 }
