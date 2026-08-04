@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { PageHeader } from "@/components/editorial/PageHeader";
 import { PageShell } from "@/components/editorial/PageShell";
 import { LatestSidebar } from "@/components/editorial/LatestSidebar";
@@ -18,17 +19,40 @@ const CATEGORIES = [
   "Documentary",
   "Lifestyle",
   "Politics",
-];
+] as const;
 
-export default function LatestNews() {
+type Category = (typeof CATEGORIES)[number];
+
+function resolveCategory(topic: string): Category {
+  if (!topic) return "All";
+  const match = CATEGORIES.find((c) => c.toLowerCase() === topic.toLowerCase());
+  return match ?? "All";
+}
+
+function LatestNewsContent() {
   const published = usePublishedArticles();
-  const [activeCategory, setActiveCategory] = useState("All");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const topicFromUrl = searchParams.get("topic")?.trim() ?? "";
+  const activeCategory = resolveCategory(topicFromUrl);
   const [page, setPage] = useState(1);
   const perPage = 12;
 
   useEffect(() => {
     setPage(1);
   }, [activeCategory]);
+
+  function selectCategory(cat: Category) {
+    setPage(1);
+    if (cat === "All") {
+      router.replace(pathname, { scroll: false });
+      return;
+    }
+    router.replace(`${pathname}?topic=${encodeURIComponent(cat)}`, {
+      scroll: false,
+    });
+  }
 
   const filtered = useMemo(
     () => filterByCategory(published, activeCategory),
@@ -55,7 +79,8 @@ export default function LatestNews() {
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
-              onClick={() => setActiveCategory(cat)}
+              type="button"
+              onClick={() => selectCategory(cat)}
               className={cn(
                 "px-3.5 py-1.5 text-[11px] uppercase tracking-[0.08em] font-semibold rounded-sm border transition-colors",
                 activeCategory === cat
@@ -122,5 +147,20 @@ export default function LatestNews() {
         </div>
       </PageShell>
     </div>
+  );
+}
+
+export default function LatestNews() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background pt-8 pb-20 site-gutter">
+          <div className="h-10 w-48 animate-pulse rounded-sm bg-muted" />
+          <div className="mt-6 h-4 w-full max-w-xl animate-pulse rounded-sm bg-muted/80" />
+        </div>
+      }
+    >
+      <LatestNewsContent />
+    </Suspense>
   );
 }

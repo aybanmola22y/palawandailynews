@@ -282,13 +282,10 @@ export default function About() {
 
           <div className="relative p-6 md:p-10 lg:p-12">
             <div className="max-w-2xl">
-              <div className="flex items-center gap-3">
-                <span className="h-px w-8 bg-primary" aria-hidden />
-                <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
-                  <Users className="h-3.5 w-3.5" />
-                  Who we are
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+                <Users className="h-3.5 w-3.5" />
+                Who we are
+              </span>
               <h2 className="mt-5 font-serif text-3xl md:text-4xl leading-[1.1] tracking-tight text-foreground">
                 A small team, focused on reporting.
               </h2>
@@ -321,10 +318,6 @@ export default function About() {
                     <h3 className="font-serif text-xl leading-snug text-foreground transition-colors group-hover:text-primary">
                       {m.name}
                     </h3>
-                    <span
-                      className="mt-3 block h-px w-10 bg-primary/50"
-                      aria-hidden
-                    />
                     <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
                       {m.role}
                     </p>
