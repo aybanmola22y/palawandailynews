@@ -14,6 +14,7 @@ import {
   Quote,
   CheckCircle2,
 } from "lucide-react";
+import { authorProfilePath } from "@/lib/author-profile";
 
 const OWNERSHIP_AND_FUNDING = [
   "Palawan Daily News is a quad media publishing company owned and published by Alpha Eight Publishing, a registered company in the Philippines through its Department of Trade Industry and the Bureau of Internal Revenue.",
@@ -54,6 +55,16 @@ const TEAM = [
   },
 ] as const;
 
+function teamInitials(name: string) {
+  const parts = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((part) => !/^(jr\.?|sr\.?|ii|iii|iv)$/i.test(part));
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
 const VALUES = [
   "We work with integrity, respect and teamwork, valuing our people, performing with high level of excellence and quality with great accuracy and impartiality.",
 ] as const;
@@ -71,7 +82,7 @@ const VISION =
 
 const CONTACT = {
   headOffice:
-    "3/F Daniel Alley Bldg. II, National Highway, San Pedro, Puerto Princesa City 5300 Philippines",
+    "3/F, Unit 305 Trigold Business Park, National Highway, San Pedro, Puerto Princesa City 5300 Philippines",
   email: "info@palawandailynews.com",
   tel: "+63 (48) 717 0288",
   mobile: "+63 917 829 1370",
@@ -259,31 +270,71 @@ export default function About() {
           </div>
         </section>
 
-        <section className="mt-8 editorial-card p-6 md:p-8">
-          <div className="flex items-center gap-2 text-muted-foreground text-[11px] uppercase tracking-[0.18em] font-semibold">
-            <Users className="h-4 w-4" />
-            Who we are
-          </div>
-          <h2 className="mt-4 font-serif text-2xl leading-snug">
-            A small team, focused on reporting.
-          </h2>
-          <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground max-w-3xl">
-            We’re a compact newsroom—built for speed when it matters, and depth when it
-            counts.
-          </p>
+        <section className="mt-10 relative overflow-hidden rounded-sm border border-border bg-gradient-to-br from-[#FBF9F6] via-card to-[#F3F0EC] dark:from-[#161614] dark:via-[#1A1A18] dark:to-[#121210]">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.35] dark:opacity-[0.2]"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 12% 18%, rgba(196,30,58,0.08), transparent 42%)",
+            }}
+            aria-hidden
+          />
 
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {TEAM.map((m) => (
-              <div key={m.name} className="border border-border rounded-sm p-4">
-                <div className="font-serif text-lg leading-snug">{m.name}</div>
-                <div className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                  {m.role}
-                </div>
-                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                  {m.bio}
-                </p>
+          <div className="relative p-6 md:p-10 lg:p-12">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-3">
+                <span className="h-px w-8 bg-primary" aria-hidden />
+                <span className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+                  <Users className="h-3.5 w-3.5" />
+                  Who we are
+                </span>
               </div>
-            ))}
+              <h2 className="mt-5 font-serif text-3xl md:text-4xl leading-[1.1] tracking-tight text-foreground">
+                A small team, focused on reporting.
+              </h2>
+              <p className="mt-4 text-[15px] md:text-base leading-relaxed text-muted-foreground">
+                We’re a compact newsroom—built for speed when it matters, and depth when
+                it counts.
+              </p>
+            </div>
+
+            <div className="mt-10 md:mt-12 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-px bg-border/80 rounded-sm overflow-hidden border border-border/80">
+              {TEAM.map((m, index) => (
+                <Link
+                  key={m.name}
+                  href={authorProfilePath(m.name)}
+                  className="group relative bg-card/95 dark:bg-[#1A1A18] p-6 md:p-7 flex flex-col min-h-[240px] transition-colors duration-300 hover:bg-white dark:hover:bg-[#1F1F1C]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div
+                      className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2A2420] text-white font-serif text-lg tracking-wide"
+                      aria-hidden
+                    >
+                      {teamInitials(m.name)}
+                    </div>
+                    <span className="text-[11px] font-semibold tabular-nums text-muted-foreground/70">
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </div>
+
+                  <div className="mt-6 flex-1">
+                    <h3 className="font-serif text-xl leading-snug text-foreground transition-colors group-hover:text-primary">
+                      {m.name}
+                    </h3>
+                    <span
+                      className="mt-3 block h-px w-10 bg-primary/50"
+                      aria-hidden
+                    />
+                    <p className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                      {m.role}
+                    </p>
+                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                      {m.bio}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       </div>

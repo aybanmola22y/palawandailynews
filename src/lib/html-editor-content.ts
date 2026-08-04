@@ -27,14 +27,18 @@ export function excerptToPlainText(excerpt: string): string {
 
 /** Decode entity-encoded HTML so tags can be edited visually. */
 export function decodeStoredHtml(content: string): string {
-  if (!/&lt;\/?[a-z]/i.test(content)) return content;
-  return content
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'");
+  let s = content;
+  if (/&lt;\/?[a-z]/i.test(s)) {
+    s = s
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&#160;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
+  }
+  return normalizeWordpressImportArtifacts(s);
 }
 
 /** Normalize imported HTML for the visual editor (paragraphs, no stray tags in text nodes). */
@@ -67,16 +71,70 @@ export function contentToEditorPlain(content: string): string {
   return content;
 }
 
-function decodeHtmlEntities(text: string): string {
+/** Decode common HTML entities left over from WordPress / CMS imports. */
+export function decodeHtmlEntities(text: string): string {
   return text
     .replace(/&nbsp;/gi, " ")
+    .replace(/&#160;/gi, " ")
+    .replace(/&#x0*a0;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) =>
+      String.fromCharCode(parseInt(hex, 16)),
+    );
+}
+
+/**
+ * Convert WordPress [caption] shortcodes into HTML (or strip leftovers).
+ * Imported WP posts often leave these as visible text after migration.
+ */
+export function convertWordpressCaptionShortcodes(html: string): string {
+  if (!html?.trim()) return html;
+
+  let s = html.replace(
+    /\[caption([^\]]*)\]([\s\S]*?)\[\/caption\]/gi,
+    (_match, _attrs: string, inner: string) => {
+      const imgMatch = inner.match(/<img\b[^>]*>/i);
+      const img = imgMatch?.[0] ?? "";
+      const captionText = decodeHtmlEntities(
+        inner
+          .replace(/<img\b[^>]*>/gi, " ")
+          .replace(/<\/?a\b[^>]*>/gi, " ")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim(),
+      );
+
+      if (img && captionText) {
+        return `<p>${img}</p>\n<p>${escapeHtmlText(captionText)}</p>`;
+      }
+      if (img) return `<p>${img}</p>`;
+      if (captionText) return `<p>${escapeHtmlText(captionText)}</p>`;
+      return "";
+    },
+  );
+
+  // Orphan open/close tags when the pair was broken in the import.
+  s = s.replace(/\[\/?caption[^\]]*\]/gi, "");
+  return s;
+}
+
+/** Normalize spacing entities and WordPress shortcodes in stored article HTML. */
+export function normalizeWordpressImportArtifacts(content: string): string {
+  if (!content?.trim()) return content;
+  let s = convertWordpressCaptionShortcodes(content);
+  // Decode nbsp even when the rest of the document is real HTML tags.
+  s = s
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#160;/gi, " ")
+    .replace(/&#x0*a0;/gi, " ");
+  // Drop empty paragraphs that were only &nbsp; / whitespace.
+  s = s.replace(/<p(?:\s[^>]*)?>\s*<\/p>/gi, "");
+  return s;
 }
 
 function stripHtmlTags(html: string): string {

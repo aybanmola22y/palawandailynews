@@ -59,7 +59,7 @@ const AUDIENCE_HIGHLIGHTS = [
 
 const CONTACT = {
   headOffice:
-    "3/F Daniel Alley Bldg. II, National Highway, San Pedro, Puerto Princesa City 5300 Philippines",
+    "3/F, Unit 305 Trigold Business Park, National Highway, San Pedro, Puerto Princesa City 5300 Philippines",
   email: "info@palawandailynews.com",
   tel: "+63 (48) 717 0288",
   mobile: "+63 917 829 1370",

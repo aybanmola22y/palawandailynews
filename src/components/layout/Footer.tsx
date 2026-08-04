@@ -61,7 +61,7 @@ export function Footer() {
                 href="mailto:newsroom@palawandaily.com"
                 className="hover:text-background mt-1"
               >
-                @palawandailynews.com
+                info@palawandailynews.com
               </a>
             </div>
           </div>

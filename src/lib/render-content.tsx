@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { resolveImageUrl } from "@/lib/articles/map-article-row";
 import {
+  decodeHtmlEntities,
   decodeStoredHtml,
   excerptToPlainText,
   looksLikeHtml as contentLooksLikeHtml,
@@ -374,7 +375,9 @@ function excerptMatchesBody(excerptNorm: string, bodyNorm: string): boolean {
 }
 
 function stripHtmlToPlain(html: string) {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return decodeHtmlEntities(html.replace(/<[^>]+>/g, " "))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function openParagraphMatches(a: string, b: string) {
@@ -453,10 +456,19 @@ function paragraphsAreDuplicate(prevNorm: string, nextNorm: string) {
 function findArticleRestartIndex(norms: string[]): number | null {
   if (norms.length < 4) return null;
 
-  const first = norms.find((n) => n.length >= 40);
-  if (!first) return null;
+  let firstIndex = -1;
+  let first = "";
+  for (let i = 0; i < norms.length; i++) {
+    if ((norms[i] ?? "").length >= 40) {
+      firstIndex = i;
+      first = norms[i] ?? "";
+      break;
+    }
+  }
+  if (firstIndex < 0 || !first) return null;
 
-  const minRestart = Math.max(2, Math.floor(norms.length / 3));
+  // Only look for a later repeat of the opening block — never the opening itself.
+  const minRestart = Math.max(firstIndex + 2, Math.floor(norms.length / 3));
   for (let i = minRestart; i < norms.length; i++) {
     if (openParagraphMatches(first, norms[i] ?? "")) {
       return i;
@@ -464,7 +476,7 @@ function findArticleRestartIndex(norms: string[]): number | null {
   }
 
   const mid = Math.floor(norms.length / 2);
-  if (norms[mid] && openParagraphMatches(first, norms[mid])) {
+  if (mid > firstIndex && norms[mid] && openParagraphMatches(first, norms[mid])) {
     return mid;
   }
 
@@ -634,7 +646,7 @@ function sanitizeArticleHtml(html: string) {
 }
 
 const HTML_CONTENT_CLASS =
-  "article-body-html [&_p]:mb-6 [&_p]:leading-relaxed [&_h2]:font-serif [&_h2]:text-[26px] [&_h2]:mt-12 [&_h2]:mb-5 [&_h3]:font-serif [&_h3]:text-xl [&_h3]:mt-8 [&_h3]:mb-4 [&_a]:text-primary [&_a]:underline [&_img]:my-8 [&_img]:max-w-full [&_ul]:my-6 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#C41E3A] [&_blockquote]:pl-8 [&_blockquote]:py-2 [&_blockquote]:my-10 [&_blockquote]:font-serif [&_blockquote]:text-[22px]";
+  "article-body-html [&_p]:mb-6 [&_p]:leading-relaxed [&_h2]:font-serif [&_h2]:text-[26px] [&_h2]:mt-12 [&_h2]:mb-5 [&_h3]:font-serif [&_h3]:text-xl [&_h3]:mt-8 [&_h3]:mb-4 [&_a]:text-primary [&_a]:underline [&_img]:my-8 [&_img]:max-w-full [&_figure]:my-8 [&_figcaption]:text-[12px] [&_figcaption]:text-muted-foreground [&_figcaption]:mt-2 [&_figcaption]:text-center [&_ul]:my-6 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-[3px] [&_blockquote]:border-[#C41E3A] [&_blockquote]:pl-8 [&_blockquote]:py-2 [&_blockquote]:my-10 [&_blockquote]:font-serif [&_blockquote]:text-[22px]";
 
 function renderBlock(block: string, key: number) {
   if (block.startsWith("## ")) {

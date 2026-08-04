@@ -1,14 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/editorial/PageHeader";
 import { PageShell } from "@/components/editorial/PageShell";
 import { LatestSidebar } from "@/components/editorial/LatestSidebar";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
+import { PaginatedListTransition } from "@/components/editorial/PaginatedListTransition";
 import { cn } from "@/lib/utils";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
-import { scrollToTop } from "@/lib/smooth-scroll";
 import { filterByCategory, paginateArticles } from "@/lib/site-articles";
 import type { Article } from "@/store/articles-context";
 
@@ -30,25 +29,6 @@ export default function LatestNews() {
   useEffect(() => {
     setPage(1);
   }, [activeCategory]);
-
-  const didMountRef = useRef(false);
-  useEffect(() => {
-    if (!didMountRef.current) {
-      didMountRef.current = true;
-      return;
-    }
-    // Scroll after the new page has painted (content height settles), with a
-    // timeout fallback in case the first frame fires before layout.
-    let rafId = 0;
-    rafId = requestAnimationFrame(() => {
-      rafId = requestAnimationFrame(() => scrollToTop(true));
-    });
-    const timeoutId = window.setTimeout(() => scrollToTop(true), 80);
-    return () => {
-      cancelAnimationFrame(rafId);
-      window.clearTimeout(timeoutId);
-    };
-  }, [page]);
 
   const filtered = useMemo(
     () => filterByCategory(published, activeCategory),
@@ -88,21 +68,23 @@ export default function LatestNews() {
           ))}
         </div>
 
-        <div className="divide-y divide-border border-t border-border">
-          {pageArticles.map((article: Article) => (
-            <ArticleListRow
-              key={article.id}
-              article={article}
-              className="py-8 first:pt-6"
-            />
-          ))}
+        <PaginatedListTransition page={page}>
+          <div className="divide-y divide-border border-t border-border">
+            {pageArticles.map((article: Article) => (
+              <ArticleListRow
+                key={article.id}
+                article={article}
+                className="py-8 first:pt-6"
+              />
+            ))}
 
-          {pageArticles.length === 0 && (
-            <div className="py-16 text-center text-muted-foreground">
-              <p className="text-sm">No articles found in this category.</p>
-            </div>
-          )}
-        </div>
+            {pageArticles.length === 0 && (
+              <div className="py-16 text-center text-muted-foreground">
+                <p className="text-sm">No articles found in this category.</p>
+              </div>
+            )}
+          </div>
+        </PaginatedListTransition>
 
         <div className="mt-8 flex items-center justify-between gap-4 border-t border-border pt-8">
           <p className="text-[11px] uppercase tracking-wider text-muted-foreground">

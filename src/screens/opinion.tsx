@@ -7,6 +7,7 @@ import { PageShell } from "@/components/editorial/PageShell";
 import { SidebarPanel } from "@/components/editorial/SidebarPanel";
 import { PopularNewsSidebar } from "@/components/editorial/PopularNewsSidebar";
 import { ArticleListRow } from "@/components/editorial/ArticleListRow";
+import { PaginatedListTransition } from "@/components/editorial/PaginatedListTransition";
 import { usePopularNewsArticles } from "@/hooks/use-popular-news-articles";
 import { usePublishedArticles } from "@/hooks/use-published-articles";
 import {
@@ -289,15 +290,17 @@ export default function Opinion() {
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-border border-t border-border">
-              {streamArticles.map((article: Article) => (
-                <ArticleListRow
-                  key={article.id}
-                  article={article}
-                  className="py-8 first:pt-6"
-                />
-              ))}
-            </div>
+            <PaginatedListTransition page={page}>
+              <div className="divide-y divide-border border-t border-border">
+                {streamArticles.map((article: Article) => (
+                  <ArticleListRow
+                    key={article.id}
+                    article={article}
+                    className="py-8 first:pt-6"
+                  />
+                ))}
+              </div>
+            </PaginatedListTransition>
           )}
 
           {totalPages > 1 ? (
