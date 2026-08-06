@@ -3,6 +3,8 @@ import { scanRequestForSqlInjection } from "@/lib/security/sqli-guard";
 import {
   DANGEROUS_PATH,
   hasDisallowedQueryKeys,
+  isValidArticleId,
+  isValidAuthorSlug,
 } from "@/lib/security/safe-url";
 
 const PUBLIC_DATA_API_PATHS = [
@@ -84,9 +86,8 @@ export function invalidIdResponse(label = "Invalid id"): NextResponse {
 export function guardDynamicArticlePath(pathname: string): boolean {
   const match = pathname.match(/^\/article\/([^/]+)\/?$/);
   if (!match) return true;
-  const id = match[1];
   try {
-    return /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,240}$/.test(decodeURIComponent(id));
+    return isValidArticleId(decodeURIComponent(match[1]));
   } catch {
     return false;
   }
@@ -95,9 +96,8 @@ export function guardDynamicArticlePath(pathname: string): boolean {
 export function guardDynamicAuthorPath(pathname: string): boolean {
   const match = pathname.match(/^\/author\/([^/]+)\/?$/);
   if (!match) return true;
-  const slug = match[1];
   try {
-    return /^[a-z0-9][a-z0-9-]{0,120}$/.test(decodeURIComponent(slug).toLowerCase());
+    return isValidAuthorSlug(decodeURIComponent(match[1]));
   } catch {
     return false;
   }

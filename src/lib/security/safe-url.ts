@@ -1,5 +1,9 @@
-/** Slug-style article ids (WordPress imports + CMS). */
-const ARTICLE_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,240}$/;
+/**
+ * Slug-style article ids (WordPress imports + CMS).
+ * Allows letters, numbers, `_`, `-`, and currency symbols (e.g. ₱ in legacy WP slugs).
+ */
+const ARTICLE_ID_RE =
+  /^[\p{L}\p{N}][\p{L}\p{N}_\-\p{Sc}]{0,240}$/u;
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
