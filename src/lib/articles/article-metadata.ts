@@ -6,7 +6,10 @@ import { getSiteUrl } from "@/lib/site-url";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { isValidArticleId } from "@/lib/security/safe-url";
+import {
+  articleIdLookupCandidates,
+  isValidArticleId,
+} from "@/lib/security/safe-url";
 
 const SITE_NAME = "Palawan Daily News";
 const OG_SELECT = "id, title, excerpt, image_url, author, category, status";
@@ -30,12 +33,6 @@ function getAnonServerClient() {
   });
 }
 
-function resolveLookupId(raw: string) {
-  const id = raw.trim();
-  if (id.startsWith("wp-")) return id.slice(3);
-  return id;
-}
-
 function plainDescription(excerpt: string | null | undefined, fallback: string) {
   const text = excerptToPlainText(excerpt ?? "").replace(/\s+/g, " ").trim();
   if (!text) return fallback;
@@ -57,8 +54,8 @@ export async function fetchArticleForMetadata(
 ): Promise<OgArticleRow | null> {
   if (!isSupabaseConfigured()) return null;
 
-  const id = resolveLookupId(rawId);
-  if (!isValidArticleId(id)) return null;
+  const candidates = articleIdLookupCandidates(rawId);
+  if (!candidates.length || !candidates.some(isValidArticleId)) return null;
 
   const client = getSupabaseServiceClient() ?? getAnonServerClient();
   if (!client) return null;
@@ -66,8 +63,9 @@ export async function fetchArticleForMetadata(
   const { data, error } = await client
     .from("articles")
     .select(OG_SELECT)
-    .eq("id", id)
+    .in("id", candidates)
     .eq("status", "Published")
+    .limit(1)
     .maybeSingle();
 
   if (error || !data) return null;

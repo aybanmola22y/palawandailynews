@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { invalidIdResponse } from "@/lib/security/request-guard";
-import { isValidArticleId, isValidUuid } from "@/lib/security/safe-url";
+import {
+  articleIdLookupCandidates,
+  isValidArticleId,
+  isValidUuid,
+} from "@/lib/security/safe-url";
 
 export function parseArticleRouteId(
   id: string,
 ): { ok: true; id: string } | { ok: false; response: NextResponse } {
-  const trimmed = id.trim();
-  if (!isValidArticleId(trimmed)) {
+  const candidates = articleIdLookupCandidates(id);
+  const match = candidates.find(isValidArticleId);
+  if (!match) {
     return { ok: false, response: invalidIdResponse("Invalid article id") };
   }
-  return { ok: true, id: trimmed };
+  return { ok: true, id: match };
 }
 
 export function parseUuidRouteId(

@@ -3,6 +3,7 @@ import { EditorialImage } from "@/components/editorial/EditorialImage";
 import { SectionLabel } from "@/components/editorial/SectionLabel";
 import { ArticleBylineMeta } from "@/components/editorial/ArticleByline";
 import type { Article } from "@/store/articles-context";
+import { articleHref } from "@/lib/security/safe-url";
 import { cn } from "@/lib/utils";
 
 export type PopularNewsArticle = Pick<Article, "id" | "title" | "date"> & {
@@ -39,7 +40,7 @@ export function PopularNewsSidebar({
         <article key={article.id} className="py-5 first:pt-0 last:pb-0">
           <div className={cn("flex gap-4", wide ? "sm:gap-5" : "items-start sm:gap-5")}>
             <Link
-              href={`/article/${article.id}`}
+              href={articleHref(article.id)}
               prefetch={false}
               className={cn(
                 "group image-zoom block shrink-0 overflow-hidden rounded-sm bg-background",
@@ -64,7 +65,7 @@ export function PopularNewsSidebar({
                 wide ? "justify-center" : "justify-center",
               )}
             >
-              <Link href={`/article/${article.id}`} prefetch={false} className="group block">
+              <Link href={articleHref(article.id)} prefetch={false} className="group block">
                 {article.category ? (
                   <SectionLabel className="mb-1">{article.category}</SectionLabel>
                 ) : null}

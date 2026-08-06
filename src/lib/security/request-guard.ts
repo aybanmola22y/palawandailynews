@@ -87,7 +87,7 @@ export function guardDynamicArticlePath(pathname: string): boolean {
   const match = pathname.match(/^\/article\/([^/]+)\/?$/);
   if (!match) return true;
   try {
-    return isValidArticleId(decodeURIComponent(match[1]));
+    return isValidArticleId(match[1]);
   } catch {
     return false;
   }

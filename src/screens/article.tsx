@@ -30,10 +30,10 @@ import {
   getPublishedArticles,
   getRelatedArticles,
 } from "@/lib/site-articles";
-
-function resolveArticleId(param: string) {
-  return param.startsWith("wp-") ? param.slice(3) : param;
-}
+import {
+  articleHref,
+  articleIdLookupCandidates,
+} from "@/lib/security/safe-url";
 
 type SidebarArticle = {
   id: string;
@@ -55,7 +55,7 @@ function ArticleSidebarItem({
     <div className="py-5 first:pt-0 last:pb-0">
       <div className="flex items-start gap-5">
         <Link
-          href={`/article/${article.id}`}
+          href={articleHref(article.id)}
           prefetch={false}
           className="group image-zoom flex w-[100px] shrink-0 aspect-4/3 items-center justify-center overflow-hidden rounded-sm border border-border bg-background"
         >
@@ -73,7 +73,7 @@ function ArticleSidebarItem({
           {article.category ? (
             <SectionLabel className="leading-snug">{article.category}</SectionLabel>
           ) : null}
-          <Link href={`/article/${article.id}`} prefetch={false} className="group block">
+          <Link href={articleHref(article.id)} prefetch={false} className="group block">
             <p className="font-serif text-[16px] leading-[1.45] text-foreground line-clamp-3 group-hover:text-primary transition-colors">
               {article.title}
             </p>
@@ -121,19 +121,23 @@ export default function ArticleDetail() {
   const { articles, ensureArticleContent } = useArticles();
   const params = useParams<{ id: string }>();
   const rawId = params?.id ?? "";
-  const lookupId = resolveArticleId(rawId);
+  const idCandidates = useMemo(
+    () => articleIdLookupCandidates(rawId),
+    [rawId],
+  );
+  const lookupId = idCandidates[0] ?? "";
   const popularNews = usePopularNewsArticles();
 
   const articleSummary = useMemo(() => {
-    if (!lookupId) return undefined;
-    if (rawId.startsWith("wp-")) {
+    if (!idCandidates.length) return undefined;
+    if (rawId.trim().startsWith("wp-")) {
       const wpId = Number(lookupId);
       if (Number.isFinite(wpId)) {
         return articles.find((a) => a.legacyWpId === wpId);
       }
     }
-    return articles.find((a) => a.id === lookupId || a.id === rawId);
-  }, [articles, lookupId, rawId]);
+    return articles.find((a) => idCandidates.includes(a.id));
+  }, [articles, idCandidates, lookupId, rawId]);
 
   const progress = useReadingProgress();
   const [fullArticle, setFullArticle] = useState<Article | null>(null);

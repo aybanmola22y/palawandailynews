@@ -3,7 +3,10 @@ import { rowToArticle } from "@/lib/articles/map-article-row";
 import type { ArticleRow } from "@/lib/supabase/database.types";
 import { getSupabaseServiceClient } from "@/lib/supabase/server";
 import { getSupabaseUrl, isSupabaseConfigured } from "@/lib/supabase/env";
-import { isValidArticleId } from "@/lib/security/safe-url";
+import {
+  articleIdLookupCandidates,
+  isValidArticleId,
+} from "@/lib/security/safe-url";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -26,13 +29,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: rawId } = await params;
-  const id = rawId?.trim() ?? "";
+  const candidates = articleIdLookupCandidates(rawId ?? "");
 
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
 
-  if (!isValidArticleId(id)) {
+  if (!candidates.length || !candidates.some(isValidArticleId)) {
     return NextResponse.json({ error: "Invalid article id" }, { status: 400 });
   }
 
@@ -45,8 +48,9 @@ export async function GET(
     const { data, error } = await client
       .from("articles")
       .select(ARTICLE_DETAIL_SELECT)
-      .eq("id", id)
+      .in("id", candidates)
       .eq("status", "Published")
+      .limit(1)
       .maybeSingle();
 
     if (error) throw error;

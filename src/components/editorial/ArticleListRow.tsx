@@ -7,6 +7,7 @@ import {
   isGenericPublicationAuthor,
 } from "@/lib/author-profile";
 import { formatArticleDate } from "@/lib/site-articles";
+import { articleHref } from "@/lib/security/safe-url";
 import { cn } from "@/lib/utils";
 import type { Article } from "@/store/articles-context";
 
@@ -75,7 +76,7 @@ export function ArticleListRow({
       )}
     >
       <Link
-        href={`/article/${article.id}`}
+        href={articleHref(article.id)}
         prefetch={false}
         className="image-zoom flex aspect-4/3 w-full items-center justify-center self-start overflow-hidden rounded-sm border border-border bg-background md:aspect-3/2 md:w-full"
       >
@@ -93,7 +94,7 @@ export function ArticleListRow({
         <div className="min-w-0">
           <SectionLabel className="mb-2">{article.category}</SectionLabel>
 
-          <Link href={`/article/${article.id}`} prefetch={false} className="block w-full">
+          <Link href={articleHref(article.id)} prefetch={false} className="block w-full">
             <h2
               className={cn(
                 "w-full font-serif text-2xl leading-snug line-clamp-2 text-pretty transition-colors group-hover:text-primary lg:text-[1.6rem]",
